@@ -23,7 +23,7 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
     <img id="logo" crossorigin="anonymous" src="https://i.ibb.co/pBmFHbbK/IMG-2768.jpg" alt="Ayres Diversões" class="w-40 h-40 mx-auto object-contain rounded-full bg-white p-1" style="box-shadow:0 0 0 5px rgba(255,255,255,.35),0 12px 30px #0006">
     <h1 class="text-white text-2xl font-extrabold mt-5 tracking-wide">AYRES DIVERSÕES</h1>
     <p class="text-white/70 text-sm mb-6">Locação de carrinhos</p>
-    <input id="pw" type="password" placeholder="Senha" class="w-full rounded-2xl p-3.5 text-center text-lg outline-none shadow-lg">
+    <input id="pw" type="password" placeholder="Senha" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" class="w-full rounded-2xl p-3.5 text-center outline-none shadow-lg" style="position:relative;z-index:5;display:block;background:#fff;color:#111;-webkit-text-fill-color:#111;opacity:1;border:2px solid rgba(255,255,255,.7);font-size:18px;-webkit-appearance:none;appearance:none;-webkit-user-select:text;user-select:text;pointer-events:auto">
     <button id="go" class="w-full mt-3 rounded-2xl p-3.5 font-bold text-lg shadow-lg" style="background:var(--a);color:var(--ac)">Entrar</button>
   </div>
 </div>
@@ -69,11 +69,12 @@ $('#go').onclick=async()=>{
   const b=$('#go');S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{const r=await call('login');
     if(r.error)throw 'senha';if(!r.role)throw 'api';
-    S.role=r.role;ac=new (window.AudioContext||window.webkitAudioContext)();
+    S.role=r.role;try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(_){ac=null}
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
     await load(true);setInterval(()=>load(),8000);setInterval(tick,1000);
   }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}
 };
+$('#login').addEventListener('click',e=>{if(e.target.id!='go')$('#pw').focus()});
 $('#pw').onkeydown=e=>e.key=='Enter'&&$('#go').click();
 
 /* Dados */
