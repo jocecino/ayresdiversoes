@@ -74,19 +74,25 @@ function pal(){try{
 $('#logo').onload=pal;if($('#logo').complete&&$('#logo').naturalWidth)pal();
 
 /* Login */
-$('#go').onclick=async()=>{
-  const b=$('#go');S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
+async function entrar(auto){
+  const b=$('#go');if(!auto)S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{const r=await call('login');
     if(r.error)throw 'senha';if(!r.role)throw 'api';
-    S.role=r.role;try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(_){ac=null}
+    S.role=r.role;try{localStorage.setItem('ayres_pw',S.p)}catch(_){}
+    try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(_){ac=null}
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
     await load(true);setInterval(()=>load(),8000);setInterval(tick,1000);
-  }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}
-};
+  }catch(e){b.disabled=false;b.textContent='Entrar';
+    if(auto){if(e=='senha')try{localStorage.removeItem('ayres_pw')}catch(_){}$('#pw').placeholder=e=='senha'?'Senha alterada. Digite de novo':'Sem conexão. Digite a senha'}
+    else{$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}}
+}
+function sair(){try{localStorage.removeItem('ayres_pw')}catch(_){}location.reload()}
+$('#go').onclick=()=>entrar(false);
 $('#login').addEventListener('click',e=>{if(e.target.id!='go'&&!e.target.closest('#kp')&&e.target.id!='kpt')$('#pw').focus()});
 $('#kpt').onclick=()=>{const k=$('#kp');k.classList.toggle('hidden');if(!k.classList.contains('hidden')){$('#pw').setAttribute('readonly','');$('#pw').blur()}else{$('#pw').removeAttribute('readonly')}};
 $('#kp').onclick=e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;const w=$('#pw');w.value=k=='C'?'':k=='B'?w.value.slice(0,-1):w.value+k};
-$('#pw').onkeydown=e=>e.key=='Enter'&&$('#go').click();
+$('#pw').onkeydown=e=>{if(e.key=='Enter')$('#go').click()}; /* sem 'return false': isso bloqueava a digitação */
+try{const sv=localStorage.getItem('ayres_pw');if(sv){S.p=sv;entrar(true)}}catch(_){}
 
 /* Dados */
 async function load(f){try{const r=await call('state'),sg=JSON.stringify(r),ch=sg!=S.sig;S.sig=sg;S.carts=r.carts;S.loc=r.loc;if(f===true||(ch&&tab!='cad'))render()}catch(e){}}
@@ -124,7 +130,7 @@ function render(){
     <img src="${LOGO}" class="w-10 h-10 rounded-full bg-white p-0.5 object-contain"><b class="flex-1 leading-tight">Ayres Diversões</b>
     <span class="text-xs font-bold bg-white/90 text-gray-800 rounded-full px-3 py-1">${S.role=='admin'?'Admin':'Funcionário'}</span>
     <button onclick="refresh()" class="text-xl px-1" aria-label="Atualizar"><span id="rf" style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center">↻</span></button>
-    <button onclick="location.reload()" class="text-sm opacity-90 px-1">Sair</button></header>
+    <button onclick="sair()" class="text-sm opacity-90 px-1">Sair</button></header>
   <div class="p-4">${{home,cad,rel,his}[tab]()}</div>
   <nav class="fixed bottom-0 inset-x-0 bg-white border-t flex justify-around max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">${tabs.map(t=>`<button onclick="tab='${t[0]}';render()" class="flex-1 py-2 text-xs ${tab==t[0]?'text-lime-600 font-bold':'text-gray-400'}"><div class="text-xl">${t[1]}</div>${t[2]}</button>`).join('')}</nav>`;
   tick();
