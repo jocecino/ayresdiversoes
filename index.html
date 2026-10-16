@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ayres Diversões</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body{background:#f4f6f8;font-family:system-ui,sans-serif}
+.card{background:#fff;border-radius:18px;box-shadow:0 2px 10px #0001}
+.spin{width:18px;height:18px;border:3px solid #fff6;border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;display:inline-block;vertical-align:middle}
+@keyframes s{to{transform:rotate(360deg)}}
+.shake{animation:sh .3s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+.pulse{animation:p 1s infinite}@keyframes p{50%{opacity:.5}}
+</style></head>
+<body>
+<div id="login" class="min-h-screen flex items-center justify-center p-6" style="background:linear-gradient(#0008,#000a),url('https://i.ibb.co/pBmFHbbK/IMG-2768.jpg') center/cover">
+  <div class="w-full max-w-xs text-center">
+    <img src="logo.png" onerror="this.style.display='none'" class="mx-auto mb-3 h-24">
+    <h1 class="text-white text-2xl font-extrabold mb-6">AYRES DIVERSÕES</h1>
+    <input id="pw" type="password" placeholder="Senha" class="w-full rounded-xl p-3 text-center text-lg outline-none">
+    <button id="go" class="w-full mt-3 rounded-xl p-3 font-bold text-white" style="background:#84cc16">Entrar</button>
+  </div>
+</div>
+<div id="app" class="hidden pb-24 max-w-md mx-auto"></div>
+<script>
+const API='COLE_AQUI_A_URL_DO_APPS_SCRIPT';
+let S={p:'',role:'',carts:[],loc:[]},tab='home',ac,beeped={};
+const $=s=>document.querySelector(s);
+const brl=v=>'R$ '+Number(v).toFixed(2).replace('.',',');
+const call=async(a,d={})=>(await fetch(API,{method:'POST',body:JSON.stringify({a,p:S.p,...d})})).json();
+const load=async()=>{try{const r=await call('state');S.carts=r.carts;S.loc=r.loc;render()}catch(e){}};
+const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(ms/60)).padStart(2,'0')+':'+String(ms%60).padStart(2,'0')};
+const cart=id=>S.carts.find(c=>c.id==id)||{nome:'?'};
+const isToday=t=>new Date(+t).toDateString()==new Date().toDateString();
+
+$('#go').onclick=async()=>{
+  const b=$('#go');S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
+  try{const r=await call('login');
+    if(r.error||!r.role)throw 0;
+    S.role=r.role;ac=new (window.AudioContext||window.webkitAudioContext)();
+    $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
+    await load();setInterval(load,8000);setInterval(()=>tab=='home'&&render(),1000);
+  }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder='Senha incorreta'}
+};
+function beep(){if(!ac)return;[0,.4,.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
+
+function render(){
+  const tabs=S.role=='admin'?[['home','🏠','Principal'],['cad','➕','Cadastro'],['rel','📊','Relatório'],['his','🕘','Histórico']]:[['home','🏠','Principal'],['rel','📊','Relatório']];
+  $('#app').innerHTML=`<div class="p-4">${{home,cad,rel,his}[tab]()}</div>
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t flex justify-around max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">${tabs.map(t=>`<button onclick="tab='${t[0]}';render()" class="flex-1 py-2 text-xs ${tab==t[0]?'text-lime-600 font-bold':'text-gray-400'}"><div class="text-xl">${t[1]}</div>${t[2]}</button>`).join('')}</nav>`;
+}
+function home(){
+  const act=S.loc.filter(l=>l.status=='ativa'),n=S.carts.length;
+  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',n-act.length]].map(x=>`<div class="card flex-1 p-3"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos</div>`;
+  if(!n)h+='<p class="text-gray-400 text-center mt-10">Nenhum carrinho cadastrado.</p>';
+  h+=S.carts.map(c=>{
+    const a=act.find(l=>l.carrinho==c.id);
+    if(!a)return `<div onclick="ask('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-cover rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>`;
+    const left=+a.inicio+a.minutos*60000-Date.now(),end=left<=0;
+    if(end&&!beeped[a.id]){beeped[a.id]=1;beep()}
+    return `<div onclick="fin('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-red-500 bg-red-50 ${end?'pulse':''}"><img src="${c.foto}" class="w-20 h-16 object-cover rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-red-600">● OCUPADO · ${a.minutos} min · ${brl(a.valor)}</div></div><div class="text-right"><div class="text-2xl font-bold ${end?'text-red-600':''}">${mmss(left)}</div><div class="text-xs text-red-500">${end?'Toque p/ finalizar':'restantes'}</div></div></div>`}).join('');
+  return h}
+function ask(id){
+  const d=document.createElement('div');d.className='fixed inset-0 bg-black/50 flex items-end justify-center z-50';
+  d.innerHTML=`<div class="bg-white w-full max-w-md rounded-t-3xl p-5"><b class="text-lg">${cart(id).nome}</b><div class="flex gap-2 my-3">${[10,15,20,30].map(m=>`<button class="q flex-1 border rounded-xl py-2" data-m="${m}">${m}</button>`).join('')}</div><input id="mi" type="number" inputmode="numeric" value="10" class="w-full border rounded-xl p-3 text-center text-xl"><div id="vl" class="text-center text-2xl font-bold my-3 text-lime-600">R$ 15,00</div><button id="ok" class="w-full rounded-xl p-3 font-bold text-white bg-lime-500">▶ Iniciar</button><button id="cx" class="w-full p-3 text-gray-500">Cancelar</button></div>`;
+  document.body.appendChild(d);const mi=d.querySelector('#mi'),up=()=>d.querySelector('#vl').textContent=brl((+mi.value||0)*1.5);
+  mi.oninput=up;d.querySelectorAll('.q').forEach(b=>b.onclick=()=>{mi.value=b.dataset.m;up()});
+  d.querySelector('#cx').onclick=()=>d.remove();
+  d.querySelector('#ok').onclick=async()=>{const m=+mi.value;if(m<1)return;d.remove();if(ac&&ac.state=='suspended')ac.resume();await call('start',{cart:id,min:m});load()}}
+async function fin(id){if(!confirm('Finalizar locação?'))return;await call('end',{id});load()}
+function cad(){return `<div class="card p-4 mb-4"><b>Novo carrinho</b><input id="nm" placeholder="Ex: Drift Vermelho" class="w-full border rounded-xl p-3 mt-2"><input id="ft" type="file" accept="image/*" class="w-full mt-2 text-sm"><button onclick="addC()" class="w-full mt-3 rounded-xl p-3 font-bold text-white bg-lime-500">Cadastrar</button></div>`+S.carts.map(c=>`<div class="card p-3 mb-2 flex items-center gap-3"><img src="${c.foto}" class="w-14 h-12 object-cover rounded-lg"><b class="flex-1">${c.nome}</b><button onclick="delC('${c.id}')" class="text-red-500">🗑</button></div>`).join('')}
+function addC(){
+  const nome=$('#nm').value.trim(),f=$('#ft').files[0];if(!nome||!f)return alert('Informe nome e foto');
+  const im=new Image();im.onload=async()=>{const k=Math.min(1,320/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);
+    await call('addCart',{nome,foto:c.toDataURL('image/jpeg',.7)});load()};im.src=URL.createObjectURL(f)}
+async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load()}}
+function lines(l){return l.map(x=>`<div class="card p-3 mb-2 flex justify-between"><div><b>${cart(x.carrinho).nome}</b><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min</div></div><b>${brl(x.valor)}</b></div>`).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
+function rel(){const l=S.loc.filter(x=>isToday(x.inicio)),t=l.reduce((s,x)=>s+ +x.valor,0);
+  return `<div class="card p-4 mb-4 text-center"><div class="text-sm text-gray-500">Hoje</div><div class="text-3xl font-bold text-lime-600">${brl(t)}</div><div class="text-sm">${l.length} locações · ${l.reduce((s,x)=>s+ +x.minutos,0)} min</div></div>`+lines(l.slice().reverse())}
+function his(){return `<div class="font-semibold mb-2">Histórico</div>`+lines(S.loc.slice().reverse())}
+</script></body></html>
