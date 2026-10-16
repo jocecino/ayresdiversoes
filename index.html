@@ -4,70 +4,181 @@
 <title>Ayres Diversões</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
+:root{--p:#84cc16;--pc:#111;--d:#1a2e05;--a:#84cc16;--ac:#111}
+.bg-lime-500{background:var(--p)!important;color:var(--pc)!important}
+.text-lime-600{color:var(--p)!important}
 body{background:#f4f6f8;font-family:system-ui,sans-serif}
 .card{background:#fff;border-radius:18px;box-shadow:0 2px 10px #0001}
-.spin{width:18px;height:18px;border:3px solid #fff6;border-top-color:#fff;border-radius:50%;animation:s .7s linear infinite;display:inline-block;vertical-align:middle}
+.in{width:100%;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;outline:none;background:#fff}
+.spin{width:18px;height:18px;border:3px solid currentColor;border-top-color:transparent;border-radius:50%;animation:s .7s linear infinite;display:inline-block;vertical-align:middle}
 @keyframes s{to{transform:rotate(360deg)}}
 .shake{animation:sh .3s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
-.pulse{animation:p 1s infinite}@keyframes p{50%{opacity:.5}}
+.pulse{animation:p 1s infinite}@keyframes p{50%{opacity:.55}}
+.pk.on{outline:2px solid var(--p);background:#f7fee7}
+.b{border-radius:12px;padding:10px;font-weight:600}
 </style></head>
 <body>
-<div id="login" class="min-h-screen flex items-center justify-center p-6" style="background:linear-gradient(#0008,#000a),url('https://i.ibb.co/pBmFHbbK/IMG-2768.jpg') center/cover">
+<div id="login" class="min-h-screen flex items-center justify-center p-6" style="background:linear-gradient(160deg,var(--d),var(--p))">
   <div class="w-full max-w-xs text-center">
-    <img src="logo.png" onerror="this.style.display='none'" class="mx-auto mb-3 h-24">
-    <h1 class="text-white text-2xl font-extrabold mb-6">AYRES DIVERSÕES</h1>
-    <input id="pw" type="password" placeholder="Senha" class="w-full rounded-xl p-3 text-center text-lg outline-none">
-    <button id="go" class="w-full mt-3 rounded-xl p-3 font-bold text-white" style="background:#84cc16">Entrar</button>
+    <img id="logo" crossorigin="anonymous" src="https://i.ibb.co/pBmFHbbK/IMG-2768.jpg" alt="Ayres Diversões" class="w-40 h-40 mx-auto object-contain rounded-full bg-white p-1" style="box-shadow:0 0 0 5px rgba(255,255,255,.35),0 12px 30px #0006">
+    <h1 class="text-white text-2xl font-extrabold mt-5 tracking-wide">AYRES DIVERSÕES</h1>
+    <p class="text-white/70 text-sm mb-6">Locação de carrinhos</p>
+    <input id="pw" type="password" placeholder="Senha" class="w-full rounded-2xl p-3.5 text-center text-lg outline-none shadow-lg">
+    <button id="go" class="w-full mt-3 rounded-2xl p-3.5 font-bold text-lg shadow-lg" style="background:var(--a);color:var(--ac)">Entrar</button>
   </div>
 </div>
 <div id="app" class="hidden pb-24 max-w-md mx-auto"></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzIst60rgg6wlMP3ddfG-nu8LW24NbE3Rx3c-ZIQN5lxwBZa4fus_pmKM1kOFwXG8kb/exec';
-let S={p:'',role:'',carts:[],loc:[]},tab='home',ac,beeped={};
+const LOGO='https://i.ibb.co/pBmFHbbK/IMG-2768.jpg',PRECO=1.5;
+const PK=[{m:10,b:0,p:15,l:'10 min'},{m:20,b:0,p:30,l:'20 min'},{m:30,b:10,p:45,l:'30+10 bônus'}];
+let S={p:'',role:'',carts:[],loc:[],sig:''},tab='home',ac,beeped={};
 const $=s=>document.querySelector(s);
-const brl=v=>'R$ '+Number(v).toFixed(2).replace('.',',');
-const call=async(a,d={})=>(await fetch(API,{method:'POST',body:JSON.stringify({a,p:S.p,...d})})).json();
-const load=async(f)=>{try{const r=await call('state');S.carts=r.carts;S.loc=r.loc;if(f===true||tab!='cad')render()}catch(e){}};
+const brl=v=>'R$ '+Number(v||0).toFixed(2).replace('.',',');
+const call=async(a,d={})=>{const r=await(await fetch(API,{method:'POST',body:JSON.stringify({a,p:S.p,...d})})).json();if(r.err)throw r.err;return r};
 const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(ms/60)).padStart(2,'0')+':'+String(ms%60).padStart(2,'0')};
-const cart=id=>S.carts.find(c=>c.id==id)||{nome:'?'};
+const cart=id=>S.carts.find(c=>c.id==id)||{nome:'?',foto:''};
+const ph=s=>String(s||'').replace(/\D/g,'');
+const pg=x=>(+x.pix||0)+(+x.dinheiro||0)+(+x.debito||0)+(+x.credito||0);
 const isToday=t=>new Date(+t).toDateString()==new Date().toDateString();
+const hm=t=>new Date(+t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+const lf=l=>l.status=='pausada'?+l.restante:+l.endAt-Date.now();
+const live=l=>l.status=='ativa'||l.status=='pausada';
+const badge=l=>l.status=='cancelada'?['Cancelada','bg-gray-200 text-gray-600']:pg(l)>=+l.valor-.005?['Pago','bg-green-100 text-green-700']:['Pendente','bg-amber-100 text-amber-800'];
 
+/* Paleta automática a partir da logo */
+const V=(p,v)=>document.documentElement.style.setProperty(p,v);
+const applyPal=o=>Object.entries(o).forEach(([k,v])=>V(k,v));
+try{const sv=localStorage.getItem('pal');sv&&applyPal(JSON.parse(sv))}catch(e){}
+function pal(){try{
+  const im=$('#logo'),c=document.createElement('canvas');c.width=c.height=48;const x=c.getContext('2d');x.drawImage(im,0,0,48,48);
+  const d=x.getImageData(0,0,48,48).data,m={};
+  for(let i=0;i<d.length;i+=4){if(d[i+3]<200)continue;const r=d[i],g=d[i+1],b=d[i+2],mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+    if(mx<50||mn>215||mx-mn<45)continue;const k=(r>>5)+','+(g>>5)+','+(b>>5),o=m[k]=m[k]||{n:0,r:0,g:0,b:0};o.n++;o.r+=r;o.g+=g;o.b+=b}
+  const L=Object.values(m).sort((a,b)=>b.n-a.n).map(o=>[o.r/o.n,o.g/o.n,o.b/o.n].map(Math.round));if(!L.length)return;
+  const hue=([r,g,b])=>{const mx=Math.max(r,g,b),d=mx-Math.min(r,g,b);const h=mx==r?((g-b)/d)%6:mx==g?(b-r)/d+2:(r-g)/d+4;return(h*60+360)%360};
+  const hd=(a,b)=>{const t=Math.abs(a-b);return Math.min(t,360-t)};
+  const P=L[0],A=L.find(c=>hd(hue(c),hue(P))>40)||P,rgb=c=>`rgb(${c})`,ink=c=>(.299*c[0]+.587*c[1]+.114*c[2])>150?'#111':'#fff';
+  const o={'--p':rgb(P),'--pc':ink(P),'--d':rgb(P.map(v=>Math.round(v*.3))),'--a':rgb(A),'--ac':ink(A)};
+  applyPal(o);try{localStorage.setItem('pal',JSON.stringify(o))}catch(e){}
+}catch(e){}}
+$('#logo').onload=pal;if($('#logo').complete&&$('#logo').naturalWidth)pal();
+
+/* Login */
 $('#go').onclick=async()=>{
   const b=$('#go');S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{const r=await call('login');
     if(r.error)throw 'senha';if(!r.role)throw 'api';
     S.role=r.role;ac=new (window.AudioContext||window.webkitAudioContext)();
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
-    await load();setInterval(()=>load(),8000);setInterval(()=>tab=='home'&&render(),1000);
+    await load(true);setInterval(()=>load(),8000);setInterval(tick,1000);
   }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}
 };
-function beep(){if(!ac)return;[0,.4,.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
+$('#pw').onkeydown=e=>e.key=='Enter'&&$('#go').click();
 
+/* Dados */
+async function load(f){try{const r=await call('state'),sg=JSON.stringify(r),ch=sg!=S.sig;S.sig=sg;S.carts=r.carts;S.loc=r.loc;if(f===true||(ch&&tab!='cad'))render()}catch(e){}}
+async function refresh(){const i=$('#rf');i&&i.classList.add('spin');await load(true);const j=$('#rf');j&&j.classList.remove('spin')}
+function beep(){if(!ac)return;[0,.4,.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
+function tick(){S.loc.filter(live).forEach(l=>{
+  const left=lf(l),end=l.status=='ativa'&&left<=0;
+  document.querySelectorAll(`.tm[data-id="${l.id}"]`).forEach(e=>e.textContent=mmss(left));
+  document.querySelectorAll(`.lb[data-id="${l.id}"]`).forEach(e=>e.textContent=end?'Tempo esgotado! Toque':l.status=='pausada'?'pausado':'restantes');
+  document.querySelectorAll(`[data-card="${l.id}"]`).forEach(e=>e.classList.toggle('pulse',end));
+  if(end&&left>-60000&&!beeped[l.id]){beeped[l.id]=1;beep()}})}
+
+/* Telas */
 function render(){
   const tabs=S.role=='admin'?[['home','🏠','Principal'],['cad','➕','Cadastro'],['rel','📊','Relatório'],['his','🕘','Histórico']]:[['home','🏠','Principal'],['rel','📊','Relatório']];
-  $('#app').innerHTML=`<div class="p-4">${{home,cad,rel,his}[tab]()}</div>
+  $('#app').innerHTML=`<header class="flex items-center gap-2 p-3 text-white" style="background:linear-gradient(135deg,var(--d),var(--p));padding-top:calc(env(safe-area-inset-top) + .75rem)">
+    <img src="${LOGO}" class="w-10 h-10 rounded-full bg-white p-0.5 object-contain"><b class="flex-1 leading-tight">Ayres Diversões</b>
+    <span class="text-xs font-bold bg-white/90 text-gray-800 rounded-full px-3 py-1">${S.role=='admin'?'Admin':'Funcionário'}</span>
+    <button onclick="refresh()" class="text-xl px-1" aria-label="Atualizar"><span id="rf" style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center">↻</span></button>
+    <button onclick="location.reload()" class="text-sm opacity-90 px-1">Sair</button></header>
+  <div class="p-4">${{home,cad,rel,his}[tab]()}</div>
   <nav class="fixed bottom-0 inset-x-0 bg-white border-t flex justify-around max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">${tabs.map(t=>`<button onclick="tab='${t[0]}';render()" class="flex-1 py-2 text-xs ${tab==t[0]?'text-lime-600 font-bold':'text-gray-400'}"><div class="text-xl">${t[1]}</div>${t[2]}</button>`).join('')}</nav>`;
+  tick();
 }
 function home(){
-  const act=S.loc.filter(l=>l.status=='ativa'),n=S.carts.length;
-  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',n-act.length]].map(x=>`<div class="card flex-1 p-3"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos</div>`;
+  const act=S.loc.filter(live),n=S.carts.length;
+  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',n-act.length]].map(x=>`<div class="card flex-1 p-3"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
   if(!n)h+='<p class="text-gray-400 text-center mt-10">Nenhum carrinho cadastrado.</p>';
-  h+=S.carts.map(c=>{
+  return h+S.carts.map(c=>{
     const a=act.find(l=>l.carrinho==c.id);
-    if(!a)return `<div onclick="ask('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-cover rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>`;
-    const left=+a.inicio+a.minutos*60000-Date.now(),end=left<=0;
-    if(end&&!beeped[a.id]){beeped[a.id]=1;beep()}
-    return `<div onclick="fin('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-red-500 bg-red-50 ${end?'pulse':''}"><img src="${c.foto}" class="w-20 h-16 object-cover rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-red-600">● OCUPADO · ${a.minutos} min · ${brl(a.valor)}</div></div><div class="text-right"><div class="text-2xl font-bold ${end?'text-red-600':''}">${mmss(left)}</div><div class="text-xs text-red-500">${end?'Toque p/ finalizar':'restantes'}</div></div></div>`}).join('');
-  return h}
-function ask(id){
-  const d=document.createElement('div');d.className='fixed inset-0 bg-black/50 flex items-end justify-center z-50';
-  d.innerHTML=`<div class="bg-white w-full max-w-md rounded-t-3xl p-5"><b class="text-lg">${cart(id).nome}</b><div class="flex gap-2 my-3">${[10,15,20,30].map(m=>`<button class="q flex-1 border rounded-xl py-2" data-m="${m}">${m}</button>`).join('')}</div><input id="mi" type="number" inputmode="numeric" value="10" class="w-full border rounded-xl p-3 text-center text-xl"><div id="vl" class="text-center text-2xl font-bold my-3 text-lime-600">R$ 15,00</div><button id="ok" class="w-full rounded-xl p-3 font-bold text-white bg-lime-500">▶ Iniciar</button><button id="cx" class="w-full p-3 text-gray-500">Cancelar</button></div>`;
-  document.body.appendChild(d);const mi=d.querySelector('#mi'),up=()=>d.querySelector('#vl').textContent=brl((+mi.value||0)*1.5);
-  mi.oninput=up;d.querySelectorAll('.q').forEach(b=>b.onclick=()=>{mi.value=b.dataset.m;up()});
-  d.querySelector('#cx').onclick=()=>d.remove();
-  d.querySelector('#ok').onclick=async()=>{const m=+mi.value;if(m<1)return;d.remove();if(ac&&ac.state=='suspended')ac.resume();await call('start',{cart:id,min:m});load()}}
-async function fin(id){if(!confirm('Finalizar locação?'))return;await call('end',{id});load()}
-function cad(){return `<div class="card p-4 mb-4"><b>Novo carrinho</b><input id="nm" placeholder="Ex: Drift Vermelho" class="w-full border rounded-xl p-3 mt-2"><input id="ft" type="file" accept="image/*" class="w-full mt-2 text-sm"><button onclick="addC()" class="w-full mt-3 rounded-xl p-3 font-bold text-white bg-lime-500">Cadastrar</button></div>`+S.carts.map(c=>`<div class="card p-3 mb-2 flex items-center gap-3"><img src="${c.foto}" class="w-14 h-12 object-cover rounded-lg"><b class="flex-1">${c.nome}</b><button onclick="delC('${c.id}')" class="text-red-500">🗑</button></div>`).join('')}
+    if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>`;
+    const p=a.status=='pausada';
+    return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':'text-red-600'}">● ${p?'PAUSADO':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
+}
+
+/* Modais */
+const M=h=>{document.querySelectorAll('.mdl').forEach(e=>e.remove());const d=document.createElement('div');d.className='mdl fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';d.innerHTML=`<div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[92vh] overflow-y-auto">${h}</div>`;d.onclick=e=>e.target==d&&d.remove();document.body.appendChild(d);return d};
+const payHTML=id=>`<div class="grid grid-cols-2 gap-2 bg-gray-50 p-3 rounded-xl">${[['pix','Pix'],['dinheiro','Dinheiro'],['debito','Débito'],['credito','Crédito']].map(x=>`<div><label class="text-[11px] text-gray-500">${x[1]} (R$)</label><input type="number" step="0.01" inputmode="decimal" id="${id}-${x[0]}" class="in" style="padding:8px"></div>`).join('')}</div><div class="text-right text-xs font-bold text-green-600 mt-1">Total pago: <span id="${id}-t">R$ 0,00</span></div>`;
+const payVals=(d,id)=>{const o={};['pix','dinheiro','debito','credito'].forEach(k=>o[k]=+d.querySelector(`#${id}-${k}`).value||0);return o};
+const payBind=(d,id,cb)=>['pix','dinheiro','debito','credito'].forEach(k=>d.querySelector(`#${id}-${k}`).oninput=()=>{const v=payVals(d,id);d.querySelector(`#${id}-t`).textContent=brl(pg(v));cb&&cb(v)});
+
+function entry(cid){
+  let pk=null,valor=0;
+  const d=M(`<h2 class="text-2xl font-extrabold mb-1">Registrar Entrada</h2><div class="text-sm text-gray-500 mb-3">${cart(cid).nome}</div>
+  <label class="text-sm text-gray-600">Celular (Opcional - Busca Cliente)</label><input id="e-cel" type="tel" inputmode="numeric" placeholder="(00) 00000-0000" class="in mb-1"><div id="e-fb" class="text-xs font-semibold mb-2 text-green-600"></div>
+  <label class="text-sm text-gray-600">Nome de Referência (Responsável)</label><input id="e-ref" placeholder="Ex: Maria (Mãe)" class="in mb-3">
+  <label class="text-sm text-gray-600">Nome do Cliente</label><input id="e-nome" placeholder="Ex: Joãozinho" class="in mb-3">
+  <label class="text-sm text-gray-600">Pacote de Tempo (opcional - preenche automático)</label>
+  <div class="grid grid-cols-2 gap-2 my-2">${PK.map((x,i)=>`<button type="button" class="pk b border bg-gray-50 text-sm" data-i="${i}">${x.l}<br><span class="text-green-600">R$ ${x.p}</span></button>`).join('')}<button type="button" class="pk b border bg-gray-50 text-sm" data-i="-1">Personalizado</button></div>
+  <label class="text-sm text-gray-600">Minutos</label><input id="e-min" type="number" inputmode="numeric" placeholder="Ex: 15" class="in mb-1"><div id="e-val" class="text-right font-bold text-xl text-green-600 mb-3">R$ 0,00</div>
+  <label class="text-sm text-gray-600">Status de Pagamento Inicial</label><select id="e-st" class="in mb-3"><option value="P">Pagar ao Sair / Futuro</option><option value="G">Já Pagou Agora</option></select><div id="e-pay" class="hidden mb-3">${payHTML('ep')}</div>
+  <div class="flex gap-3"><button class="b flex-1 bg-gray-100" id="e-cx">Cancelar</button><button class="b flex-1 bg-lime-500" id="e-ok">▶ Iniciar</button></div>`);
+  const g=s=>d.querySelector(s),setV=()=>{g('#e-val').textContent=brl(valor);if(g('#e-st').value=='G'){g('#ep-dinheiro').value=valor?valor.toFixed(2):'';g('#ep-t').textContent=brl(valor)}};
+  payBind(d,'ep');
+  d.querySelectorAll('.pk').forEach(b=>b.onclick=()=>{d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));b.classList.add('on');const i=+b.dataset.i;
+    if(i<0){pk=null;g('#e-min').value='';valor=0}else{pk=PK[i];g('#e-min').value=pk.m+pk.b;valor=pk.p}setV()});
+  g('#e-min').oninput=()=>{pk=null;d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));valor=(+g('#e-min').value||0)*PRECO;setV()};
+  g('#e-st').onchange=()=>{g('#e-pay').classList.toggle('hidden',g('#e-st').value!='G');setV()};
+  g('#e-cel').oninput=()=>{const c=ph(g('#e-cel').value),fb=g('#e-fb');fb.textContent='';if(c.length<4)return;
+    const h=S.loc.filter(l=>ph(l.cel)==c&&l.status!='cancelada');if(!h.length)return;const u=h[h.length-1];
+    if(!g('#e-nome').value)g('#e-nome').value=u.cliente||'';if(!g('#e-ref').value)g('#e-ref').value=u.ref||'';
+    fb.textContent=`Cliente encontrado! Já soma ${h.length} participação(ões).`};
+  g('#e-cx').onclick=()=>d.remove();
+  g('#e-ok').onclick=async()=>{const min=+g('#e-min').value;if(!g('#e-nome').value.trim())return alert('Informe o nome do cliente');if(min<1)return alert('Informe os minutos ou escolha um pacote');
+    const b=g('#e-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';if(ac&&ac.state=='suspended')ac.resume();
+    const pay=g('#e-st').value=='G'?payVals(d,'ep'):{};
+    try{await call('start',{cart:cid,cliente:g('#e-nome').value.trim(),ref:g('#e-ref').value.trim(),cel:ph(g('#e-cel').value),min,valor,...pay});d.remove();await load(true)}
+    catch(e){b.disabled=false;b.textContent='▶ Iniciar';alert('Erro: '+e)}}}
+
+function panel(id){
+  const l=S.loc.find(x=>x.id==id);if(!l||!live(l))return;const bd=badge(l),p=l.status=='pausada';
+  const d=M(`<div class="flex justify-between items-start gap-2"><div><div class="text-2xl font-extrabold">${l.cliente||'Cliente'} <button id="p-ed" class="text-base text-indigo-500">✎</button></div>${l.ref?`<div class="text-indigo-600 font-semibold">Ref: ${l.ref}</div>`:''}${l.cel?`<div class="text-gray-500">Tel: ${l.cel}</div>`:''}</div><span class="text-xs bg-blue-100 text-blue-700 rounded-full px-3 py-1 whitespace-nowrap">Meta: ${l.minutos} min</span></div>
+  <div class="text-sm text-gray-500 mt-1">${cart(l.carrinho).nome}</div>
+  <div class="text-center my-4"><div class="tm text-5xl font-extrabold" data-id="${l.id}"></div><div class="lb text-sm text-red-500" data-id="${l.id}"></div></div>
+  <div class="flex justify-between text-sm mb-2"><span>🕐 Entrada: <b>${hm(l.inicio)}</b></span><span class="${bd[1]} rounded-lg px-3 py-1 font-semibold">${bd[0]}</span></div>
+  <div class="border-t pt-3 flex justify-between items-end"><div><div class="text-xs text-gray-400">🔒 Valor do Pacote (travado)</div><div class="text-3xl font-extrabold text-green-600">${brl(l.valor)}</div>${pg(l)>0?`<div class="text-xs text-gray-500">Pago: ${brl(pg(l))}</div>`:''}</div>
+  <div class="flex gap-2"><button id="p-ps" class="b ${p?'bg-green-100 text-green-700':'bg-amber-100 text-amber-800'} text-sm">${p?'▶ Continuar':'⏸ Pausar'}</button><button id="p-mo" class="b bg-blue-50 text-blue-700 text-sm">+ Mais</button></div></div>
+  <div class="flex gap-3 mt-4"><button id="p-cn" class="b flex-1 bg-gray-100">Cancelar</button><button id="p-fn" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div>
+  <button id="p-x" class="w-full text-gray-400 text-sm mt-3">Fechar</button>`);
+  const g=s=>d.querySelector(s),act=async(a,x={})=>{try{await call(a,{id,...x});d.remove();await load(true)}catch(e){alert('Erro: '+e)}};
+  tick();g('#p-x').onclick=()=>d.remove();
+  g('#p-ps').onclick=()=>act(p?'resume':'pause');
+  g('#p-mo').onclick=()=>{const m=+prompt('Quantos minutos adicionar? (R$ 1,50 por minuto)','5');if(m>0)act('more',{min:m})};
+  g('#p-cn').onclick=()=>confirm('Cancelar esta locação?')&&act('cancel');
+  g('#p-ed').onclick=()=>edit(l);
+  g('#p-fn').onclick=()=>fin(l)}
+function edit(l){
+  const d=M(`<h2 class="text-xl font-bold mb-3">Editar dados</h2><label class="text-sm text-gray-600">Nome do Cliente</label><input id="d-n" class="in mb-2" value="${l.cliente||''}"><label class="text-sm text-gray-600">Referência</label><input id="d-r" class="in mb-2" value="${l.ref||''}"><label class="text-sm text-gray-600">Celular</label><input id="d-c" type="tel" class="in mb-3" value="${l.cel||''}"><div class="flex gap-3"><button class="b flex-1 bg-gray-100" id="d-x">Voltar</button><button class="b flex-1 bg-lime-500" id="d-ok">Salvar</button></div>`);
+  d.querySelector('#d-x').onclick=()=>panel(l.id);
+  d.querySelector('#d-ok').onclick=async()=>{try{await call('edit',{id:l.id,cliente:d.querySelector('#d-n').value.trim(),ref:d.querySelector('#d-r').value.trim(),cel:ph(d.querySelector('#d-c').value)});await load(true);panel(l.id)}catch(e){alert('Erro: '+e)}}}
+function fin(l){
+  const rest=Math.max(0,+l.valor-pg(l));
+  const d=M(`<h2 class="text-xl font-bold mb-1">Finalizar — ${l.cliente||''}</h2><div class="flex justify-between my-3"><div><div class="text-xs text-gray-400">Valor</div><b class="text-xl">${brl(l.valor)}</b></div><div><div class="text-xs text-gray-400">Já pago</div><b class="text-xl">${brl(pg(l))}</b></div><div><div class="text-xs text-gray-400">A receber</div><b class="text-xl text-red-600">${brl(rest)}</b></div></div>
+  ${rest>0?`<div class="text-xs font-bold text-gray-600 mb-1">Formas de Pagamento:</div>${payHTML('fp')}`:'<div class="text-center text-green-600 font-semibold">Tudo pago ✔</div>'}
+  <div class="flex gap-3 mt-4"><button class="b flex-1 bg-gray-100" id="f-x">Voltar</button><button class="b flex-1 text-white" style="background:#dc4f4a" id="f-ok">Finalizar</button></div>`);
+  const g=s=>d.querySelector(s);let pay={};
+  if(rest>0){payBind(d,'fp');g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest)}
+  g('#f-x').onclick=()=>panel(l.id);
+  g('#f-ok').onclick=async()=>{if(rest>0){pay=payVals(d,'fp');if(pg(pay)<rest-.005&&!confirm(`Falta ${brl(rest-pg(pay))}. Finalizar mesmo assim? Ficará como Pendente.`))return}
+    const b=g('#f-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
+    try{await call('end',{id:l.id,...pay});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Finalizar';alert('Erro: '+e)}}}
+
+/* Cadastro de carrinhos (admin) */
+function cad(){return `<div class="card p-4 mb-4"><b>Novo carrinho</b><input id="nm" placeholder="Ex: Drift Vermelho" class="in mt-2"><input id="ft" type="file" accept="image/*" class="w-full mt-2 text-sm"><button onclick="addC()" class="b w-full mt-3 bg-lime-500">Cadastrar</button></div>`+S.carts.map(c=>`<div class="card p-3 mb-2 flex items-center gap-3"><img src="${c.foto}" class="w-14 h-12 object-contain rounded-lg"><b class="flex-1">${c.nome}</b><button onclick="delC('${c.id}')" class="text-red-500">🗑</button></div>`).join('')}
 function addC(){
   const nome=$('#nm').value.trim(),f=$('#ft').files[0];if(!nome||!f)return alert('Informe nome e foto');
   const bt=event.target;bt.disabled=true;bt.textContent='Salvando...';
@@ -77,13 +188,15 @@ function addC(){
   im.onload=async()=>{
     let w=280,q=.7,foto;
     do{const k=Math.min(1,w/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);foto=c.toDataURL('image/jpeg',q);w-=40;q-=.1}while(foto.length>40000&&w>80);
-    try{const r=await call('addCart',{nome,foto});if(r.err||r.error)throw (r.err||r.error);await load(true)}
-    catch(e){fail('Erro ao salvar: '+e)}
+    try{await call('addCart',{nome,foto});await load(true)}catch(e){fail('Erro ao salvar: '+e)}
   };
   im.src=URL.createObjectURL(f)}
 async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load(true)}}
-function lines(l){return l.map(x=>`<div class="card p-3 mb-2 flex justify-between"><div><b>${cart(x.carrinho).nome}</b><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min</div></div><b>${brl(x.valor)}</b></div>`).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
-function rel(){const l=S.loc.filter(x=>isToday(x.inicio)),t=l.reduce((s,x)=>s+ +x.valor,0);
-  return `<div class="card p-4 mb-4 text-center"><div class="text-sm text-gray-500">Hoje</div><div class="text-3xl font-bold text-lime-600">${brl(t)}</div><div class="text-sm">${l.length} locações · ${l.reduce((s,x)=>s+ +x.minutos,0)} min</div></div>`+lines(l.slice().reverse())}
+
+/* Relatório e histórico */
+function lines(l){return l.map(x=>{const b=badge(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div></div><div class="text-right"><b>${brl(x.valor)}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div></div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
+function rel(){const l=S.loc.filter(x=>isToday(x.inicio)&&x.status!='cancelada'),sum=k=>l.reduce((s,x)=>s+(+x[k]||0),0),rec=l.reduce((s,x)=>s+pg(x),0),pend=l.reduce((s,x)=>s+Math.max(0,+x.valor-pg(x)),0);
+  return `<div class="card p-4 mb-3 text-center"><div class="text-sm text-gray-500">Recebido hoje</div><div class="text-3xl font-bold text-lime-600">${brl(rec)}</div><div class="text-sm">${l.length} locações · ${l.reduce((s,x)=>s+ +x.minutos,0)} min · A receber ${brl(pend)}</div></div>
+  <div class="grid grid-cols-2 gap-2 mb-4">${[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].map(x=>`<div class="card p-3 text-center"><div class="text-xs text-gray-500">${x[0]}</div><b>${brl(sum(x[1]))}</b></div>`).join('')}</div>`+lines(l.slice().reverse())}
 function his(){return `<div class="font-semibold mb-2">Histórico</div>`+lines(S.loc.slice().reverse())}
 </script></body></html>
