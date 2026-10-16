@@ -22,7 +22,7 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
 </div>
 <div id="app" class="hidden pb-24 max-w-md mx-auto"></div>
 <script>
-const API='COLE_AQUI_A_URL_DO_APPS_SCRIPT';
+const API='https://script.google.com/macros/s/AKfycbzIst60rgg6wlMP3ddfG-nu8LW24NbE3Rx3c-ZIQN5lxwBZa4fus_pmKM1kOFwXG8kb/exec';
 let S={p:'',role:'',carts:[],loc:[]},tab='home',ac,beeped={};
 const $=s=>document.querySelector(s);
 const brl=v=>'R$ '+Number(v).toFixed(2).replace('.',',');
@@ -35,11 +35,11 @@ const isToday=t=>new Date(+t).toDateString()==new Date().toDateString();
 $('#go').onclick=async()=>{
   const b=$('#go');S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
   try{const r=await call('login');
-    if(r.error||!r.role)throw 0;
+    if(r.error)throw 'senha';if(!r.role)throw 'api';
     S.role=r.role;ac=new (window.AudioContext||window.webkitAudioContext)();
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
     await load();setInterval(load,8000);setInterval(()=>tab=='home'&&render(),1000);
-  }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder='Senha incorreta'}
+  }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}
 };
 function beep(){if(!ac)return;[0,.4,.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
 
