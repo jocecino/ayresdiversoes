@@ -27,7 +27,7 @@ let S={p:'',role:'',carts:[],loc:[]},tab='home',ac,beeped={};
 const $=s=>document.querySelector(s);
 const brl=v=>'R$ '+Number(v).toFixed(2).replace('.',',');
 const call=async(a,d={})=>(await fetch(API,{method:'POST',body:JSON.stringify({a,p:S.p,...d})})).json();
-const load=async()=>{try{const r=await call('state');S.carts=r.carts;S.loc=r.loc;render()}catch(e){}};
+const load=async(f)=>{try{const r=await call('state');S.carts=r.carts;S.loc=r.loc;if(f===true||tab!='cad')render()}catch(e){}};
 const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(ms/60)).padStart(2,'0')+':'+String(ms%60).padStart(2,'0')};
 const cart=id=>S.carts.find(c=>c.id==id)||{nome:'?'};
 const isToday=t=>new Date(+t).toDateString()==new Date().toDateString();
@@ -38,7 +38,7 @@ $('#go').onclick=async()=>{
     if(r.error)throw 'senha';if(!r.role)throw 'api';
     S.role=r.role;ac=new (window.AudioContext||window.webkitAudioContext)();
     $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
-    await load();setInterval(load,8000);setInterval(()=>tab=='home'&&render(),1000);
+    await load();setInterval(()=>load(),8000);setInterval(()=>tab=='home'&&render(),1000);
   }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}
 };
 function beep(){if(!ac)return;[0,.4,.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
@@ -77,11 +77,11 @@ function addC(){
   im.onload=async()=>{
     let w=280,q=.7,foto;
     do{const k=Math.min(1,w/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);foto=c.toDataURL('image/jpeg',q);w-=40;q-=.1}while(foto.length>40000&&w>80);
-    try{const r=await call('addCart',{nome,foto});if(r.err||r.error)throw (r.err||r.error);await load()}
+    try{const r=await call('addCart',{nome,foto});if(r.err||r.error)throw (r.err||r.error);await load(true)}
     catch(e){fail('Erro ao salvar: '+e)}
   };
   im.src=URL.createObjectURL(f)}
-async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load()}}
+async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load(true)}}
 function lines(l){return l.map(x=>`<div class="card p-3 mb-2 flex justify-between"><div><b>${cart(x.carrinho).nome}</b><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min</div></div><b>${brl(x.valor)}</b></div>`).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
 function rel(){const l=S.loc.filter(x=>isToday(x.inicio)),t=l.reduce((s,x)=>s+ +x.valor,0);
   return `<div class="card p-4 mb-4 text-center"><div class="text-sm text-gray-500">Hoje</div><div class="text-3xl font-bold text-lime-600">${brl(t)}</div><div class="text-sm">${l.length} locações · ${l.reduce((s,x)=>s+ +x.minutos,0)} min</div></div>`+lines(l.slice().reverse())}
