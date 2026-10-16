@@ -12,6 +12,8 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
 .in{width:100%;border:1px solid #e5e7eb;border-radius:12px;padding:10px 12px;outline:none;background:#fff}
 .spin{width:18px;height:18px;border:3px solid currentColor;border-top-color:transparent;border-radius:50%;animation:s .7s linear infinite;display:inline-block;vertical-align:middle}
 @keyframes s{to{transform:rotate(360deg)}}
+#pw::placeholder{color:#9ca3af;-webkit-text-fill-color:#9ca3af;opacity:1}
+#kp button{background:rgba(255,255,255,.92);color:#111;border-radius:14px;padding:12px 0;font-size:22px;font-weight:700;box-shadow:0 2px 6px #0003}
 .shake{animation:sh .3s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 .pulse{animation:p 1s infinite}@keyframes p{50%{opacity:.55}}
 .pk.on{outline:2px solid var(--p);background:#f7fee7}
@@ -25,6 +27,8 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
     <p class="text-white/70 text-sm mb-6">Locação de carrinhos</p>
     <input id="pw" type="password" placeholder="Senha" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" class="w-full rounded-2xl p-3.5 text-center outline-none shadow-lg" style="position:relative;z-index:5;display:block;background:#fff;color:#111;-webkit-text-fill-color:#111;opacity:1;border:2px solid rgba(255,255,255,.7);font-size:18px;-webkit-appearance:none;appearance:none;-webkit-user-select:text;user-select:text;pointer-events:auto">
     <button id="go" class="w-full mt-3 rounded-2xl p-3.5 font-bold text-lg shadow-lg" style="background:var(--a);color:var(--ac)">Entrar</button>
+    <button id="kpt" type="button" class="text-white/90 text-sm underline mt-4">Teclado não aparece? Usar teclado da tela</button>
+    <div id="kp" class="hidden grid grid-cols-3 gap-2 mt-3"><button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="C">C</button><button type="button" data-k="0">0</button><button type="button" data-k="B">⌫</button></div>
   </div>
 </div>
 <div id="app" class="hidden pb-24 max-w-md mx-auto"></div>
@@ -74,7 +78,9 @@ $('#go').onclick=async()=>{
     await load(true);setInterval(()=>load(),8000);setInterval(tick,1000);
   }catch(e){b.disabled=false;b.textContent='Entrar';$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}
 };
-$('#login').addEventListener('click',e=>{if(e.target.id!='go')$('#pw').focus()});
+$('#login').addEventListener('click',e=>{if(e.target.id!='go'&&!e.target.closest('#kp')&&e.target.id!='kpt')$('#pw').focus()});
+$('#kpt').onclick=()=>{const k=$('#kp');k.classList.toggle('hidden');if(!k.classList.contains('hidden')){$('#pw').setAttribute('readonly','');$('#pw').blur()}else{$('#pw').removeAttribute('readonly')}};
+$('#kp').onclick=e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;const w=$('#pw');w.value=k=='C'?'':k=='B'?w.value.slice(0,-1):w.value+k};
 $('#pw').onkeydown=e=>e.key=='Enter'&&$('#go').click();
 
 /* Dados */
