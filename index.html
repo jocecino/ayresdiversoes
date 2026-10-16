@@ -32,10 +32,11 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
   </div>
 </div>
 <div id="app" class="hidden pb-24 max-w-md mx-auto"></div>
+<div id="alerts" style="position:fixed;left:0;right:0;top:0;z-index:60;pointer-events:none;padding:calc(env(safe-area-inset-top) + 8px) 12px 0"><div id="alin" class="max-w-md mx-auto"></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzIst60rgg6wlMP3ddfG-nu8LW24NbE3Rx3c-ZIQN5lxwBZa4fus_pmKM1kOFwXG8kb/exec';
 const LOGO='https://i.ibb.co/pBmFHbbK/IMG-2768.jpg',PRECO=1.5;
-const PK=[{m:10,b:0,p:15,l:'10 min'},{m:20,b:0,p:30,l:'20 min'},{m:30,b:10,p:45,l:'30+10 bônus'}];
+const PK=[{m:10,b:0,p:15,l:'10 min'},{m:20,b:0,p:30,l:'20 min'},{m:30,b:0,p:45,l:'30 min'}];
 let S={p:'',role:'',carts:[],loc:[],sig:''},tab='home',ac,beeped={};
 const $=s=>document.querySelector(s);
 const brl=v=>'R$ '+Number(v||0).toFixed(2).replace('.',',');
@@ -48,7 +49,10 @@ const isToday=t=>new Date(+t).toDateString()==new Date().toDateString();
 const hm=t=>new Date(+t).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
 const lf=l=>l.status=='pausada'?+l.restante:+l.endAt-Date.now();
 const live=l=>l.status=='ativa'||l.status=='pausada';
-const badge=l=>l.status=='cancelada'?['Cancelada','bg-gray-200 text-gray-600']:pg(l)>=+l.valor-.005?['Pago','bg-green-100 text-green-700']:['Pendente','bg-amber-100 text-amber-800'];
+const settled=x=>x.status=='finalizada'&&pg(x)>0;
+const badge=l=>l.status=='cancelada'?['Cancelada','bg-gray-200 text-gray-600']:(pg(l)>=+l.valor-.005||settled(l))?['Pago','bg-green-100 text-green-700']:['Pendente','bg-amber-100 text-amber-800'];
+const shown=x=>settled(x)?pg(x):+x.valor;
+const meth=x=>[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].filter(m=>+x[m[1]]>0).map(m=>m[0]+' '+brl(x[m[1]])).join(' · ');
 
 /* Paleta automática a partir da logo */
 const V=(p,v)=>document.documentElement.style.setProperty(p,v);
@@ -86,13 +90,31 @@ $('#pw').onkeydown=e=>e.key=='Enter'&&$('#go').click();
 /* Dados */
 async function load(f){try{const r=await call('state'),sg=JSON.stringify(r),ch=sg!=S.sig;S.sig=sg;S.carts=r.carts;S.loc=r.loc;if(f===true||(ch&&tab!='cad'))render()}catch(e){}}
 async function refresh(){const i=$('#rf');i&&i.classList.add('spin');await load(true);const j=$('#rf');j&&j.classList.remove('spin')}
-function beep(){if(!ac)return;[0,.4,.8].forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
+function beep(n=3){if(!ac)return;if(ac.state=='suspended')ac.resume();[0,.4,.8].slice(0,n).forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
 function tick(){S.loc.filter(live).forEach(l=>{
   const left=lf(l),end=l.status=='ativa'&&left<=0;
   document.querySelectorAll(`.tm[data-id="${l.id}"]`).forEach(e=>e.textContent=mmss(left));
   document.querySelectorAll(`.lb[data-id="${l.id}"]`).forEach(e=>e.textContent=end?'Tempo esgotado! Toque':l.status=='pausada'?'pausado':'restantes');
-  document.querySelectorAll(`[data-card="${l.id}"]`).forEach(e=>e.classList.toggle('pulse',end));
-  if(end&&left>-60000&&!beeped[l.id]){beeped[l.id]=1;beep()}})}
+  document.querySelectorAll(`[data-card="${l.id}"]`).forEach(e=>e.classList.toggle('pulse',end));});alerts()}
+
+/* Alertas: aviso 30s antes e tempo esgotado */
+let DIS={},alSig='';try{DIS=JSON.parse(localStorage.getItem('dis')||'{}')}catch(e){}
+const saveDis=()=>{try{localStorage.setItem('dis',JSON.stringify(DIS))}catch(e){}};
+const key=l=>l.id+':'+l.endAt;
+function alerts(){
+  const ws=[],es=[];
+  S.loc.filter(l=>l.status=='ativa').forEach(l=>{const left=+l.endAt-Date.now(),k=key(l);
+    if(left<=0){if(!DIS['e'+k])es.push(l)}else if(left<=30000){if(!DIS['w'+k])ws.push(l)}});
+  ws.forEach(l=>{const k='w'+key(l);if(!beeped[k]){beeped[k]=1;beep(1)}});
+  es.forEach(l=>{const k='e'+key(l);if(!beeped[k]){beeped[k]=1;beep(3)}});
+  const sig=ws.map(key).join()+'|'+es.map(key).join();if(sig==alSig)return;alSig=sig;
+  const nm=l=>`<b>${l.cliente||'Cliente'}</b> · ${cart(l.carrinho).nome}`;
+  $('#alin').innerHTML=es.map(l=>`<div style="pointer-events:auto;background:linear-gradient(135deg,#dc2626,#e11d48);color:#fff;border-radius:18px;padding:14px;margin-bottom:8px;box-shadow:0 8px 24px #0005"><div class="font-extrabold">⚠️ ATENÇÃO: Tempo Esgotado!</div><div class="text-sm mb-2">${nm(l)}</div><div class="flex gap-2"><button onclick="bonus('${l.id}',2)" class="b flex-1 bg-white text-red-700 text-sm">🎁 +2 min bônus</button><button onclick="bonus('${l.id}',5)" class="b flex-1 bg-white text-red-700 text-sm">🎁 +5 min bônus</button><button onclick="disE('${l.id}')" class="b flex-1 text-white text-sm" style="background:#7f1d1d">🔇 Dispensar de vez</button></div></div>`).join('')+
+   ws.map(l=>`<div style="pointer-events:auto;background:#f59e0b;color:#111;border-radius:18px;padding:12px 14px;margin-bottom:8px;box-shadow:0 8px 24px #0004" class="flex items-center gap-3"><div class="flex-1 text-sm">⏰ <b>Faltam 30 segundos!</b><br>${nm(l)}</div><button onclick="disW('${l.id}')" class="b bg-white text-sm">OK</button></div>`).join('')}
+function disW(id){const l=S.loc.find(x=>x.id==id);if(l){DIS['w'+key(l)]=1;saveDis();alerts()}}
+function disE(id){const l=S.loc.find(x=>x.id==id);if(l){DIS['e'+key(l)]=1;saveDis();alerts()}}
+async function bonus(id,m){const l=S.loc.find(x=>x.id==id);if(l){DIS['e'+key(l)]=1;saveDis();alerts()}
+  try{await call('bonus',{id,min:m});await load(true)}catch(e){alert('Erro: '+e)}}
 
 /* Telas */
 function render(){
@@ -110,7 +132,7 @@ function home(){
   const act=S.loc.filter(live),n=S.carts.length;
   let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',n-act.length]].map(x=>`<div class="card flex-1 p-3"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
   if(!n)h+='<p class="text-gray-400 text-center mt-10">Nenhum carrinho cadastrado.</p>';
-  return h+S.carts.map(c=>{
+  return h+S.carts.slice().sort((a,b)=>(act.some(l=>l.carrinho==a.id)?1:0)-(act.some(l=>l.carrinho==b.id)?1:0)).map(c=>{
     const a=act.find(l=>l.carrinho==c.id);
     if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>`;
     const p=a.status=='pausada';
@@ -180,7 +202,7 @@ function fin(l){
   const g=s=>d.querySelector(s);let pay={};
   if(rest>0){payBind(d,'fp');g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest)}
   g('#f-x').onclick=()=>panel(l.id);
-  g('#f-ok').onclick=async()=>{if(rest>0){pay=payVals(d,'fp');if(pg(pay)<rest-.005&&!confirm(`Falta ${brl(rest-pg(pay))}. Finalizar mesmo assim? Ficará como Pendente.`))return}
+  g('#f-ok').onclick=async()=>{if(rest>0){pay=payVals(d,'fp');if(pg(pay)<rest-.005&&!confirm(`Falta ${brl(rest-pg(pay))}. Finalizar mesmo assim? Será registrado como Pago com o valor recebido.`))return}
     const b=g('#f-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
     try{await call('end',{id:l.id,...pay});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Finalizar';alert('Erro: '+e)}}}
 
@@ -201,9 +223,11 @@ function addC(){
 async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load(true)}}
 
 /* Relatório e histórico */
-function lines(l){return l.map(x=>{const b=badge(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div></div><div class="text-right"><b>${brl(x.valor)}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div></div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
-function rel(){const l=S.loc.filter(x=>isToday(x.inicio)&&x.status!='cancelada'),sum=k=>l.reduce((s,x)=>s+(+x[k]||0),0),rec=l.reduce((s,x)=>s+pg(x),0),pend=l.reduce((s,x)=>s+Math.max(0,+x.valor-pg(x)),0);
-  return `<div class="card p-4 mb-3 text-center"><div class="text-sm text-gray-500">Recebido hoje</div><div class="text-3xl font-bold text-lime-600">${brl(rec)}</div><div class="text-sm">${l.length} locações · ${l.reduce((s,x)=>s+ +x.minutos,0)} min · A receber ${brl(pend)}</div></div>
+function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div></div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
+function rel(){const l=S.loc.filter(x=>isToday(x.inicio)&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
+  if(S.role!='admin')return `<div class="card p-4 mb-3 text-center"><div class="text-3xl font-bold text-lime-600">${l.length}</div><div class="text-sm">locações hoje · ${mins} min</div></div>`+lines(l.slice().reverse());
+  const sum=k=>l.reduce((s,x)=>s+(+x[k]||0),0),rec=l.reduce((s,x)=>s+pg(x),0),pend=l.reduce((s,x)=>s+(settled(x)?0:Math.max(0,+x.valor-pg(x))),0);
+  return `<div class="card p-4 mb-3 text-center"><div class="text-sm text-gray-500">Recebido hoje</div><div class="text-3xl font-bold text-lime-600">${brl(rec)}</div><div class="text-sm">${l.length} locações · ${mins} min · A receber ${brl(pend)}</div></div>
   <div class="grid grid-cols-2 gap-2 mb-4">${[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].map(x=>`<div class="card p-3 text-center"><div class="text-xs text-gray-500">${x[0]}</div><b>${brl(sum(x[1]))}</b></div>`).join('')}</div>`+lines(l.slice().reverse())}
 function his(){return `<div class="font-semibold mb-2">Histórico</div>`+lines(S.loc.slice().reverse())}
 </script></body></html>
