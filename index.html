@@ -70,8 +70,17 @@ async function fin(id){if(!confirm('Finalizar locação?'))return;await call('en
 function cad(){return `<div class="card p-4 mb-4"><b>Novo carrinho</b><input id="nm" placeholder="Ex: Drift Vermelho" class="w-full border rounded-xl p-3 mt-2"><input id="ft" type="file" accept="image/*" class="w-full mt-2 text-sm"><button onclick="addC()" class="w-full mt-3 rounded-xl p-3 font-bold text-white bg-lime-500">Cadastrar</button></div>`+S.carts.map(c=>`<div class="card p-3 mb-2 flex items-center gap-3"><img src="${c.foto}" class="w-14 h-12 object-cover rounded-lg"><b class="flex-1">${c.nome}</b><button onclick="delC('${c.id}')" class="text-red-500">🗑</button></div>`).join('')}
 function addC(){
   const nome=$('#nm').value.trim(),f=$('#ft').files[0];if(!nome||!f)return alert('Informe nome e foto');
-  const im=new Image();im.onload=async()=>{const k=Math.min(1,320/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);
-    await call('addCart',{nome,foto:c.toDataURL('image/jpeg',.7)});load()};im.src=URL.createObjectURL(f)}
+  const bt=event.target;bt.disabled=true;bt.textContent='Salvando...';
+  const fail=m=>{bt.disabled=false;bt.textContent='Cadastrar';alert(m)};
+  const im=new Image();
+  im.onerror=()=>fail('Não consegui ler a foto. Tente outra imagem (JPG ou PNG).');
+  im.onload=async()=>{
+    let w=280,q=.7,foto;
+    do{const k=Math.min(1,w/im.width),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);foto=c.toDataURL('image/jpeg',q);w-=40;q-=.1}while(foto.length>40000&&w>80);
+    try{const r=await call('addCart',{nome,foto});if(r.err||r.error)throw (r.err||r.error);await load()}
+    catch(e){fail('Erro ao salvar: '+e)}
+  };
+  im.src=URL.createObjectURL(f)}
 async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load()}}
 function lines(l){return l.map(x=>`<div class="card p-3 mb-2 flex justify-between"><div><b>${cart(x.carrinho).nome}</b><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min</div></div><b>${brl(x.valor)}</b></div>`).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
 function rel(){const l=S.loc.filter(x=>isToday(x.inicio)),t=l.reduce((s,x)=>s+ +x.valor,0);
