@@ -45,7 +45,7 @@ const call=async(a,d={})=>{const r=await(await fetch(API,{method:'POST',body:JSO
 const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(ms/60)).padStart(2,'0')+':'+String(ms%60).padStart(2,'0')};
 const isPula=l=>String(l.carrinho)=='PULA';
 const cart=id=>String(id)=='PULA'?{nome:'Pula-pula',foto:''}:S.carts.find(c=>c.id==id)||{nome:'?',foto:''};
-const PH=()=>(S.cfg&&+S.cfg.pulaHora)||1;
+const PM=()=>(S.cfg&&+S.cfg.pulaMin)||1;
 const byId=id=>S.loc.find(x=>x.id==id);
 const ph=s=>String(s||'').replace(/\D/g,'');
 const pg=x=>(+x.pix||0)+(+x.dinheiro||0)+(+x.debito||0)+(+x.credito||0);
@@ -169,12 +169,12 @@ function home(){
 
 /* ===== PULA-PULA (R$ por hora, por criança) ===== */
 async function pAct(a,id,x={}){try{await call(a,{id,...x});await load(true)}catch(e){alert('Erro: '+e)}}
-function pMais(id){const m=+prompt(`Quantos minutos adicionar? (${brl(PH())} por hora, por criança)`,'30');if(m>0)pAct('more',id,{min:m})}
+function pMais(id){const m=+prompt(`Quantos minutos adicionar? (${brl(PM())} por minuto, por criança)`,'10');if(m>0)pAct('more',id,{min:m})}
 function pBonus(id){const m=+prompt('Quantos minutos de BÔNUS (sem cobrar)?','1');if(m>0)pAct('bonus',id,{min:m})}
 function pula(){
   const L=S.loc.filter(l=>live(l)&&isPula(l)),kids=L.reduce((s,l)=>s+(+l.qtd||1),0);
-  let h=`<h2 class="text-2xl font-extrabold">Painel de Controle</h2><div class="text-gray-500 mb-3">Tarifa: ${brl(PH())} por hora (por criança)</div>
-  <div class="flex gap-3 mb-3"><button onclick="RK='pula';setTab('rel')" class="b flex-1 bg-white border border-indigo-200 text-indigo-700" style="border-radius:16px;padding:14px">📊 Relatórios</button><button onclick="entryPula()" class="b flex-1 text-white font-bold" style="border-radius:16px;padding:14px;background:linear-gradient(135deg,#059669,#0d9488);box-shadow:0 8px 20px #05966955">＋ Nova Entrada</button></div>
+  let h=`<h2 class="text-2xl font-extrabold">Painel de Controle</h2><div class="text-gray-500 mb-3">Tarifa: ${brl(PM())} por minuto (por criança)</div>
+  <div class="mb-3"><button onclick="entryPula()" class="b w-full text-white font-bold" style="border-radius:16px;padding:14px;background:linear-gradient(135deg,#059669,#0d9488);box-shadow:0 8px 20px #05966955">＋ Nova Entrada</button></div>
   <div class="text-sm text-gray-500 mb-3">🤸 Brincando agora: <b>${kids}</b> ${kids==1?'criança':'crianças'}</div>`;
   if(!L.length)return h+'<p class="text-gray-400 text-center mt-10">Ninguém no pula-pula agora.<br>Toque em “Nova Entrada”.</p>';
   return h+L.map(l=>{const p=l.status=='pausada',bd=badge(l),left=lf(l),end=l.status=='ativa'&&left<=0,bn=inB(l),q=+l.qtd||1;
@@ -190,22 +190,22 @@ function pula(){
     <div class="flex gap-3 mt-3"><button onclick="cancelar(byId('${l.id}'))" class="b flex-1 bg-gray-100">Cancelar</button><button onclick="fin(byId('${l.id}'))" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div></div>`}).join('')}
 
 function entryPula(){
-  const H=PH(),PKP=[{m:30,l:'30 min'},{m:60,l:'1 hora'},{m:120,l:'2 horas'}];let valor=0;
-  const calc=(m,q)=>Math.round(m/60*H*q*100)/100;
-  const d=M(`<h2 class="text-2xl font-extrabold mb-1">Nova Entrada</h2><div class="text-sm text-gray-500 mb-3">Pula-pula · ${brl(H)} por hora (por criança)</div>
+  const H=PM(),PKP=[{m:10,l:'10 min'},{m:20,l:'20 min'},{m:30,l:'30 min'}];let valor=0;
+  const calc=(m,q)=>Math.round(m*H*q*100)/100;
+  const d=M(`<h2 class="text-2xl font-extrabold mb-1">Nova Entrada</h2><div class="text-sm text-gray-500 mb-3">Pula-pula · ${brl(H)} por minuto (por criança)</div>
   <label class="text-sm text-gray-600">Celular (Opcional - Busca Cliente)</label><input id="q-cel" type="tel" inputmode="numeric" placeholder="(00) 00000-0000" class="in mb-1"><div id="q-fb" class="text-xs font-semibold mb-2 text-green-600"></div>
   <label class="text-sm text-gray-600">Nome de Referência (Responsável)</label><input id="q-ref" placeholder="Ex: Maria (Mãe)" class="in mb-3">
   <label class="text-sm text-gray-600">Nome do Cliente</label><input id="q-nome" placeholder="Ex: Joãozinho" class="in mb-3">
   <label class="text-sm text-gray-600">Quantidade de crianças</label><input id="q-qtd" type="number" min="1" value="1" inputmode="numeric" class="in mb-3">
   <label class="text-sm text-gray-600">Tempo</label>
-  <div class="grid grid-cols-3 gap-2 my-2">${PKP.map((x,i)=>`<button type="button" class="pk b border bg-gray-50 text-sm" data-m="${x.m}">${x.l}</button>`).join('')}</div>
+  <div class="grid grid-cols-2 gap-2 my-2">${PKP.map(x=>`<button type="button" class="pk b border bg-gray-50 text-sm" data-m="${x.m}">${x.l}<br><span class="text-green-600">${brl(x.m*H)} / criança</span></button>`).join('')}<button type="button" class="pk b border bg-gray-50 text-sm" data-m="">Personalizado</button></div>
   <label class="text-sm text-gray-600">Minutos</label><input id="q-min" type="number" inputmode="numeric" placeholder="Ex: 30" class="in mb-1"><div id="q-val" class="text-right font-bold text-xl text-green-600 mb-3">R$ 0,00</div>
   <label class="text-sm text-gray-600">Status de Pagamento Inicial</label><select id="q-st" class="in mb-3"><option value="P">Pagar ao Sair / Futuro</option><option value="G">Já Pagou Agora</option></select><div id="q-pay" class="hidden mb-3">${payHTML('qp')}</div>
   <div class="flex gap-3"><button class="b flex-1 bg-gray-100" id="q-cx">Cancelar</button><button class="b flex-1 bg-lime-500" id="q-ok">▶ Iniciar</button></div>`);
   const g=s=>d.querySelector(s),recalc=()=>{valor=calc(+g('#q-min').value||0,Math.max(1,+g('#q-qtd').value||1));g('#q-val').textContent=brl(valor);
     if(g('#q-st').value=='G'){g('#qp-dinheiro').value=valor?valor.toFixed(2):'';g('#qp-t').textContent=brl(valor)}};
   payBind(d,'qp');
-  d.querySelectorAll('.pk').forEach(b=>b.onclick=()=>{d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));b.classList.add('on');g('#q-min').value=b.dataset.m;recalc()});
+  d.querySelectorAll('.pk').forEach(b=>b.onclick=()=>{d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));b.classList.add('on');g('#q-min').value=b.dataset.m;recalc();if(!b.dataset.m)g('#q-min').focus()});
   g('#q-min').oninput=()=>{d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));recalc()};
   g('#q-qtd').oninput=recalc;
   g('#q-st').onchange=()=>{g('#q-pay').classList.toggle('hidden',g('#q-st').value!='G');recalc()};
@@ -391,13 +391,14 @@ function rel0(){
   const l=scope().filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
   const cn=scope().filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status=='cancelada');
   const sum=k=>l.reduce((s,x)=>s+(+x[k]||0),0),rec=l.reduce((s,x)=>s+pg(x),0),pend=l.reduce((s,x)=>s+(settled(x)?0:Math.max(0,+x.valor-pg(x))),0);
-  const qb=(q,t)=>`<button onclick="quick('${q}')" class="b bg-gray-100 text-xs flex-1" style="padding:8px 4px">${t}</button>`;
+  const qr=(()=>{const h=ymd(Date.now()),o=n=>{const x=new Date();x.setDate(x.getDate()-n);return ymd(x)},m=new Date();m.setDate(1);
+    if(RF.f==h&&RF.t==h)return 'hoje';if(RF.f==o(1)&&RF.t==o(1))return 'ontem';if(RF.f==o(6)&&RF.t==h)return '7';if(RF.f==ymd(m)&&RF.t==h)return 'mes';return ''})();
+  const qb=(q,t)=>`<button onclick="quick('${q}')" class="b text-xs flex-1 ${qr==q?'text-white':'bg-gray-100 text-gray-600'}" style="padding:6px 2px;${qr==q?'background:#475569':''}">${t}</button>`;
   let days='';
   if(!um){const g={};l.forEach(x=>{const d=ymd(x.inicio),o=g[d]=g[d]||{n:0,v:0};o.n++;o.v+=pg(x)});
     days=`<div class="font-semibold mb-2">Por dia</div><div class="card p-3 mb-4">${Object.keys(g).sort().reverse().map(d=>`<div class="flex justify-between text-sm py-1 border-b last:border-0"><span>${dm(d).slice(0,5)}</span><span class="text-gray-500">${g[d].n} locações</span><b>${brl(g[d].v)}</b></div>`).join('')||'<div class="text-gray-400 text-center text-sm">Sem registros.</div>'}</div>`}
-  return `<div class="card p-3 mb-3"><div class="flex gap-2 mb-2"><div class="flex-1"><label class="text-[11px] text-gray-500">De</label><input type="date" class="in" style="padding:8px" value="${RF.f}" max="${hoje}" onchange="setRF('f',this.value)"></div><div class="flex-1"><label class="text-[11px] text-gray-500">Até</label><input type="date" class="in" style="padding:8px" value="${RF.t}" max="${hoje}" onchange="setRF('t',this.value)"></div></div><div class="flex gap-2">${qb('hoje','Hoje')}${qb('ontem','Ontem')}${qb('7','7 dias')}${qb('mes','Este mês')}</div></div>
+  return `<div class="card p-2 mb-3"><div class="flex items-center gap-1.5 mb-2"><span class="text-[11px] text-gray-500">De</span><input type="date" class="in" style="padding:4px 6px;font-size:13px;flex:1;min-width:0;width:auto" value="${RF.f}" max="${hoje}" onchange="setRF('f',this.value)"><span class="text-[11px] text-gray-500">Até</span><input type="date" class="in" style="padding:4px 6px;font-size:13px;flex:1;min-width:0;width:auto" value="${RF.t}" max="${hoje}" onchange="setRF('t',this.value)"></div><div class="flex gap-1.5">${qb('hoje','Hoje')}${qb('ontem','Ontem')}${qb('7','7 dias')}${qb('mes','Este mês')}</div></div>
   <div class="card p-4 mb-3 text-center"><div class="text-sm text-gray-500">${um?(RF.f==hoje?'Recebido hoje':'Recebido em '+dm(RF.f)):'Recebido de '+dm(RF.f).slice(0,5)+' a '+dm(RF.t).slice(0,5)}</div><div class="text-3xl font-bold text-lime-600">${brl(rec)}</div><div class="text-sm">${l.length} locações · ${mins} min · A receber ${brl(pend)}</div></div>
   <div class="grid grid-cols-2 gap-2 mb-4">${[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].map(x=>`<div class="card p-3 text-center"><div class="text-xs text-gray-500">${x[0]}</div><b>${brl(sum(x[1]))}</b></div>`).join('')}</div>`+days+`<div class="font-semibold mb-2">Locações</div>`+lines(l.slice().reverse())+(cn.length?`<div class="font-semibold mt-4 mb-2">Desistências (${cn.length})</div>`+lines(cn.slice().reverse()):'')}
 function his(){return chipsRK()+`<div class="font-semibold mb-2">Histórico</div>`+lines(scope().slice().reverse())}
 </script></body></html>
-
