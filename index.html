@@ -208,7 +208,7 @@ function panel(id){
   <div class="text-center my-4"><div class="tm text-5xl font-extrabold" data-id="${l.id}"></div><div class="lb text-sm text-red-500" data-id="${l.id}"></div></div>
   <div class="flex justify-between text-sm mb-2"><span>🕐 Entrada: <b>${hm(l.inicio)}</b></span>${bd[0]=='Pendente'?`<button id="p-pg" class="${bd[1]} rounded-lg px-3 py-1 font-semibold border border-amber-400">⏳ Pendente · toque p/ pagar</button>`:`<span class="${bd[1]} rounded-lg px-3 py-1 font-semibold">${bd[0]}</span>`}</div>
   <div class="border-t pt-3 flex justify-between items-end"><div><div class="text-xs text-gray-400">🔒 Valor do Pacote (travado)</div><div class="text-3xl font-extrabold text-green-600">${brl(l.valor)}</div>${pg(l)>0?`<div class="text-xs text-gray-500">Pago: ${brl(pg(l))}</div>`:''}</div>
-  <div class="flex gap-2"><button id="p-ps" class="b ${p?'bg-green-100 text-green-700':'bg-amber-100 text-amber-800'} text-sm">${p?'▶ Continuar':'⏸ Pausar'}</button><button id="p-mo" class="b bg-blue-50 text-blue-700 text-sm">+ Mais</button></div></div>
+  <div class="flex gap-2 flex-wrap justify-end"><button id="p-ps" class="b ${p?'bg-green-100 text-green-700':'bg-amber-100 text-amber-800'} text-sm">${p?'▶ Continuar':'⏸ Pausar'}</button><button id="p-mo" class="b bg-blue-50 text-blue-700 text-sm">+ Mais</button><button id="p-bn" class="b bg-purple-100 text-purple-700 text-sm">🎁 Bônus</button></div></div>
   <button id="p-sw" class="b w-full bg-indigo-50 text-indigo-700 mt-3">🔄 Trocar de brinquedo</button>
   <div class="flex gap-3 mt-3"><button id="p-cn" class="b flex-1 bg-gray-100">Cancelar</button><button id="p-fn" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div>
   <button id="p-x" class="b w-full mt-3 text-white" style="background:#475569">Fechar</button>`);
@@ -218,6 +218,7 @@ function panel(id){
   g('#p-mo').onclick=()=>{const m=+prompt('Quantos minutos adicionar? (R$ 1,50 por minuto)','5');if(m>0)act('more',{min:m})};
   g('#p-sw').onclick=()=>swap(l);
   {const pb=g('#p-pg');if(pb)pb.onclick=()=>pagar(l.id)}
+  g('#p-bn').onclick=()=>{const m=+prompt('Quantos minutos de BÔNUS (sem cobrar)?','1');if(m>0)act('bonus',{min:m})};
   g('#p-cn').onclick=()=>cancelar(l);
   g('#p-ed').onclick=()=>edit(l);
   g('#p-fn').onclick=()=>fin(l)}
@@ -277,14 +278,18 @@ function edit(l){
 function fin(l){
   const rest=Math.max(0,+l.valor-pg(l));
   const d=M(`<h2 class="text-xl font-bold mb-1">Finalizar — ${l.cliente||''}</h2><div class="flex justify-between my-3"><div><div class="text-xs text-gray-400">Valor</div><b class="text-xl">${brl(l.valor)}</b></div><div><div class="text-xs text-gray-400">Já pago</div><b class="text-xl">${brl(pg(l))}</b></div><div><div class="text-xs text-gray-400">A receber</div><b class="text-xl text-red-600">${brl(rest)}</b></div></div>
-  ${rest>0?`<div class="text-xs font-bold text-gray-600 mb-1">Formas de Pagamento:</div>${payHTML('fp')}`:'<div class="text-center text-green-600 font-semibold">Tudo pago ✔</div>'}
+  ${rest>0?`<div class="text-xs font-bold text-gray-600 mb-1">Formas de Pagamento:</div>${payHTML('fp')}<label class="flex items-start gap-2 text-sm mt-3 bg-purple-50 rounded-xl p-2"><input type="checkbox" id="f-cor" class="mt-1"><span>🎁 <b>Não cobrar o restante</b> (cortesia / tempo não cobrado)</span></label><div id="f-cmw" class="hidden mt-2"><input id="f-cm" class="in" placeholder="Motivo (obrigatório). Ex: pai pediu +1 min, não cobrado"><div class="text-xs text-gray-500 mt-1">O valor da locação passa a ser só o que foi pago. O motivo fica registrado.</div></div>`:'<div class="text-center text-green-600 font-semibold">Tudo pago ✔</div>'}
   <div class="flex gap-3 mt-4"><button class="b flex-1 bg-gray-100" id="f-x">Voltar</button><button class="b flex-1 text-white" style="background:#dc4f4a" id="f-ok">Finalizar</button></div>`);
   const g=s=>d.querySelector(s);let pay={};
-  if(rest>0){payBind(d,'fp');g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest)}
+  if(rest>0){payBind(d,'fp');g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest);
+    g('#f-cor').onchange=()=>{const on=g('#f-cor').checked;g('#f-cmw').classList.toggle('hidden',!on);['pix','dinheiro','debito','credito'].forEach(k=>g('#fp-'+k).value='');
+      if(on){g('#fp-t').textContent=brl(0);g('#f-cm').focus()}else{g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest)}}}
   g('#f-x').onclick=()=>panel(l.id);
-  g('#f-ok').onclick=async()=>{if(rest>0){pay=payVals(d,'fp');if(pg(pay)<rest-.005&&!confirm(`Falta ${brl(rest-pg(pay))}. Finalizar mesmo assim? Será registrado como Pago com o valor recebido.`))return}
+  g('#f-ok').onclick=async()=>{let extra={};if(rest>0){pay=payVals(d,'fp');const cor=g('#f-cor').checked;
+    if(cor){const m=g('#f-cm').value.trim();if(!m)return alert('Informe o motivo de não cobrar o restante');const novo=pg(l)+pg(pay),sobra=+l.valor-novo;if(sobra>.005)extra={valor:novo,obs:`Cortesia: ${brl(sobra)} não cobrado — ${m} (${new Date().toLocaleString('pt-BR')})`}}
+    else if(pg(pay)<rest-.005&&!confirm(`Falta ${brl(rest-pg(pay))}. Finalizar mesmo assim? Será registrado como Pago com o valor recebido.`))return}
     const b=g('#f-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
-    try{await call('end',{id:l.id,...pay});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Finalizar';alert('Erro: '+e)}}}
+    try{await call('end',{id:l.id,...pay,...extra});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Finalizar';alert('Erro: '+e)}}}
 
 /* Cadastro de carrinhos (admin) */
 function cad(){return `<div class="card p-4 mb-4"><b>Novo carrinho</b><input id="nm" placeholder="Ex: Drift Vermelho" class="in mt-2"><input id="ft" type="file" accept="image/*" class="w-full mt-2 text-sm"><button onclick="addC()" class="b w-full mt-3 bg-lime-500">Cadastrar</button></div>`+S.carts.map(c=>`<div class="card p-3 mb-2 flex items-center gap-3"><img src="${c.foto}" class="w-14 h-12 object-contain rounded-lg"><b class="flex-1">${c.nome}</b><button onclick="delC('${c.id}')" class="text-red-500">🗑</button></div>`).join('')}
