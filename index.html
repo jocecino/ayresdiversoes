@@ -13,10 +13,9 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
 .spin{width:18px;height:18px;border:3px solid currentColor;border-top-color:transparent;border-radius:50%;animation:s .7s linear infinite;display:inline-block;vertical-align:middle}
 @keyframes s{to{transform:rotate(360deg)}}
 #pw::placeholder{color:#9ca3af;-webkit-text-fill-color:#9ca3af;opacity:1}
-#kp button{background:rgba(255,255,255,.92);color:#111;border-radius:14px;padding:12px 0;font-size:22px;font-weight:700;box-shadow:0 2px 6px #0003}
 .shake{animation:sh .3s}@keyframes sh{25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
 .pulse{animation:p 1s infinite}@keyframes p{50%{opacity:.55}}
-.pk.on{outline:2px solid var(--p);background:#f7fee7}
+.pk.on,.mr.on{outline:2px solid var(--p);background:#f7fee7}
 .b{border-radius:12px;padding:10px;font-weight:600}
 </style></head>
 <body>
@@ -25,19 +24,21 @@ body{background:#f4f6f8;font-family:system-ui,sans-serif}
     <img id="logo" crossorigin="anonymous" src="https://i.ibb.co/pBmFHbbK/IMG-2768.jpg" alt="Ayres Diversões" class="w-40 h-40 mx-auto object-contain rounded-full bg-white p-1" style="box-shadow:0 0 0 5px rgba(255,255,255,.35),0 12px 30px #0006">
     <h1 class="text-white text-2xl font-extrabold mt-5 tracking-wide">AYRES DIVERSÕES</h1>
     <p class="text-white/70 text-sm mb-6">Locação de carrinhos</p>
+    <div id="lmsg" class="text-white text-sm mb-3 font-semibold" style="min-height:1.25rem"></div>
     <input id="pw" type="password" placeholder="Senha" autocomplete="current-password" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="go" class="w-full rounded-2xl p-3.5 text-center outline-none shadow-lg" style="position:relative;z-index:5;display:block;background:#fff;color:#111;-webkit-text-fill-color:#111;opacity:1;border:2px solid rgba(255,255,255,.7);font-size:18px;-webkit-appearance:none;appearance:none;-webkit-user-select:text;user-select:text;pointer-events:auto">
     <button id="go" class="w-full mt-3 rounded-2xl p-3.5 font-bold text-lg shadow-lg" style="background:var(--a);color:var(--ac)">Entrar</button>
-    <button id="kpt" type="button" class="text-white/90 text-sm underline mt-4">Teclado não aparece? Usar teclado da tela</button>
-    <div id="kp" class="hidden grid grid-cols-3 gap-2 mt-3"><button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="C">C</button><button type="button" data-k="0">0</button><button type="button" data-k="B">⌫</button></div>
   </div>
 </div>
+<div id="splash" class="hidden min-h-screen flex items-center justify-center" style="background:linear-gradient(160deg,var(--d),var(--p))"><div class="text-center text-white"><span class="spin" style="width:34px;height:34px"></span><div class="mt-3 font-semibold">Entrando...</div></div></div>
 <div id="app" class="hidden pb-24 max-w-md mx-auto"></div>
 <div id="alerts" style="position:fixed;left:0;right:0;top:0;z-index:60;pointer-events:none;padding:calc(env(safe-area-inset-top) + 8px) 12px 0"><div id="alin" class="max-w-md mx-auto"></div></div>
 <script>
 const API='https://script.google.com/macros/s/AKfycbzIst60rgg6wlMP3ddfG-nu8LW24NbE3Rx3c-ZIQN5lxwBZa4fus_pmKM1kOFwXG8kb/exec';
 const LOGO='https://i.ibb.co/pBmFHbbK/IMG-2768.jpg',PRECO=1.5;
 const PK=[{m:10,b:0,p:15,l:'10 min'},{m:20,b:0,p:30,l:'20 min'},{m:30,b:0,p:45,l:'30 min'}];
-let S={p:'',role:'',carts:[],loc:[],sig:''},tab='home',ac,beeped={};
+let S={p:'',role:'',carts:[],loc:[],sig:''},tab=(()=>{try{return localStorage.getItem('ayres_tab')||'home'}catch(_){return 'home'}})(),ac,beeped={};
+const esc=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const setTab=t=>{tab=t;try{localStorage.setItem('ayres_tab',t)}catch(_){}render()};
 const $=s=>document.querySelector(s);
 const brl=v=>'R$ '+Number(v||0).toFixed(2).replace('.',',');
 const call=async(a,d={})=>{const r=await(await fetch(API,{method:'POST',body:JSON.stringify({a,p:S.p,...d})})).json();if(r.err)throw r.err;return r};
@@ -73,26 +74,36 @@ function pal(){try{
 }catch(e){}}
 $('#logo').onload=pal;if($('#logo').complete&&$('#logo').naturalWidth)pal();
 
-/* Login */
+/* Login (a sessão fica salva: localStorage, sessionStorage e window.name) */
+const SK='ayres_sess';
+function saveSess(){const j=JSON.stringify({p:S.p,role:S.role});try{localStorage.setItem(SK,j)}catch(_){}try{sessionStorage.setItem(SK,j)}catch(_){}try{window.name='AYRES'+j}catch(_){}}
+function loadSess(){let j=null;try{j=localStorage.getItem(SK)}catch(_){}if(!j)try{j=sessionStorage.getItem(SK)}catch(_){}if(!j&&String(window.name).startsWith('AYRES'))j=window.name.slice(5);
+  if(!j)try{const o=localStorage.getItem('ayres_pw');if(o)return{p:o}}catch(_){}
+  try{return j?JSON.parse(j):null}catch(_){return null}}
+function clearSess(){try{localStorage.removeItem(SK);localStorage.removeItem('ayres_pw')}catch(_){}try{sessionStorage.removeItem(SK)}catch(_){}try{window.name=''}catch(_){}}
+const wait=ms=>new Promise(z=>setTimeout(z,ms));
+let started=false;
 async function entrar(auto){
-  const b=$('#go');if(!auto)S.p=$('#pw').value;b.disabled=true;b.innerHTML='<span class="spin"></span>';
-  try{const r=await call('login');
+  const b=$('#go');if(!auto)S.p=$('#pw').value;
+  if(auto){$('#login').classList.add('hidden');$('#splash').classList.remove('hidden')}
+  b.disabled=true;b.innerHTML='<span class="spin"></span>';$('#lmsg').textContent='';
+  try{let r;
+    for(let t=0;;t++){try{r=await call('login');break}catch(e){if(!auto||t>=2)throw e;await wait(1500)}}
     if(r.error)throw 'senha';if(!r.role)throw 'api';
-    S.role=r.role;try{localStorage.setItem('ayres_pw',S.p)}catch(_){}
+    S.role=r.role;saveSess();
     try{ac=new (window.AudioContext||window.webkitAudioContext)()}catch(_){ac=null}
-    $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
-    await load(true);setInterval(()=>load(),8000);setInterval(tick,1000);
-  }catch(e){b.disabled=false;b.textContent='Entrar';
-    if(auto){if(e=='senha')try{localStorage.removeItem('ayres_pw')}catch(_){}$('#pw').placeholder=e=='senha'?'Senha alterada. Digite de novo':'Sem conexão. Digite a senha'}
+    $('#login').classList.add('hidden');$('#splash').classList.add('hidden');$('#app').classList.remove('hidden');
+    await load(true);
+    if(!started){started=true;setInterval(()=>load(),8000);setInterval(tick,1000)}
+  }catch(e){b.disabled=false;b.textContent='Entrar';$('#splash').classList.add('hidden');$('#login').classList.remove('hidden');
+    if(auto){if(e=='senha'){clearSess();$('#lmsg').textContent='A senha foi alterada. Digite a nova senha.'}else $('#lmsg').textContent='Não consegui conectar ao servidor. Verifique a internet e entre novamente.'}
     else{$('#pw').classList.add('shake');setTimeout(()=>$('#pw').classList.remove('shake'),400);$('#pw').value='';$('#pw').placeholder=e=='senha'?'Senha incorreta':'Erro de conexão com o servidor'}}
 }
-function sair(){try{localStorage.removeItem('ayres_pw')}catch(_){}location.reload()}
+function sair(){clearSess();location.reload()}
 $('#go').onclick=()=>entrar(false);
-$('#login').addEventListener('click',e=>{if(e.target.id!='go'&&!e.target.closest('#kp')&&e.target.id!='kpt')$('#pw').focus()});
-$('#kpt').onclick=()=>{const k=$('#kp');k.classList.toggle('hidden');if(!k.classList.contains('hidden')){$('#pw').setAttribute('readonly','');$('#pw').blur()}else{$('#pw').removeAttribute('readonly')}};
-$('#kp').onclick=e=>{const k=e.target.dataset&&e.target.dataset.k;if(!k)return;const w=$('#pw');w.value=k=='C'?'':k=='B'?w.value.slice(0,-1):w.value+k};
+$('#login').addEventListener('click',e=>{if(e.target.id!='go')$('#pw').focus()});
 $('#pw').onkeydown=e=>{if(e.key=='Enter')$('#go').click()}; /* sem 'return false': isso bloqueava a digitação */
-try{const sv=localStorage.getItem('ayres_pw');if(sv){S.p=sv;entrar(true)}}catch(_){}
+{const ss=loadSess();if(ss&&ss.p){S.p=ss.p;if(ss.role)S.role=ss.role;entrar(true)}}
 
 /* Dados */
 async function load(f){try{const r=await call('state'),sg=JSON.stringify(r),ch=sg!=S.sig;S.sig=sg;S.carts=r.carts;S.loc=r.loc;if(f===true||(ch&&tab!='cad'))render()}catch(e){}}
@@ -126,25 +137,32 @@ async function bonus(id,m){const l=S.loc.find(x=>x.id==id);if(l){DIS['e'+key(l)]
 /* Telas */
 function render(){
   const tabs=S.role=='admin'?[['home','🏠','Principal'],['cad','➕','Cadastro'],['rel','📊','Relatório'],['his','🕘','Histórico']]:[['home','🏠','Principal'],['rel','📊','Relatório']];
+  if(!tabs.some(t=>t[0]==tab))tab='home';
   $('#app').innerHTML=`<header class="flex items-center gap-2 p-3 text-white" style="background:linear-gradient(135deg,var(--d),var(--p));padding-top:calc(env(safe-area-inset-top) + .75rem)">
     <img src="${LOGO}" class="w-10 h-10 rounded-full bg-white p-0.5 object-contain"><b class="flex-1 leading-tight">Ayres Diversões</b>
     <span class="text-xs font-bold bg-white/90 text-gray-800 rounded-full px-3 py-1">${S.role=='admin'?'Admin':'Funcionário'}</span>
     <button onclick="refresh()" class="text-xl px-1" aria-label="Atualizar"><span id="rf" style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center">↻</span></button>
     <button onclick="sair()" class="text-sm opacity-90 px-1">Sair</button></header>
   <div class="p-4">${{home,cad,rel,his}[tab]()}</div>
-  <nav class="fixed bottom-0 inset-x-0 bg-white border-t flex justify-around max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">${tabs.map(t=>`<button onclick="tab='${t[0]}';render()" class="flex-1 py-2 text-xs ${tab==t[0]?'text-lime-600 font-bold':'text-gray-400'}"><div class="text-xl">${t[1]}</div>${t[2]}</button>`).join('')}</nav>`;
+  <nav class="fixed bottom-0 inset-x-0 bg-white border-t flex justify-around max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">${tabs.map(t=>`<button onclick="setTab('${t[0]}')" class="flex-1 py-2 text-xs ${tab==t[0]?'text-lime-600 font-bold':'text-gray-400'}"><div class="text-xl">${t[1]}</div>${t[2]}</button>`).join('')}</nav>`;
   tick();
 }
 function home(){
-  const act=S.loc.filter(live),n=S.carts.length;
-  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',n-act.length]].map(x=>`<div class="card flex-1 p-3"><div class="text-2xl font-bold">${x[1]}</div><div class="text-xs text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
+  const rk=c=>S.loc.some(l=>live(l)&&l.carrinho==c.id)?1:c.status=='sem_bateria'?2:0;
+  const act=S.loc.filter(live),n=S.carts.length,occ=c=>act.some(l=>l.carrinho==c.id),sb=S.carts.filter(c=>c.status=='sem_bateria'&&!occ(c)).length;
+  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',Math.max(0,n-act.length-sb)],['Sem bateria',sb]].map(x=>`<div class="card flex-1 p-2"><div class="text-2xl font-bold">${x[1]}</div><div class="text-[10px] text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
   if(!n)h+='<p class="text-gray-400 text-center mt-10">Nenhum carrinho cadastrado.</p>';
-  return h+S.carts.slice().sort((a,b)=>(act.some(l=>l.carrinho==a.id)?1:0)-(act.some(l=>l.carrinho==b.id)?1:0)).map(c=>{
+  return h+S.carts.slice().sort((a,b)=>rk(a)-rk(b)).map(c=>{
     const a=act.find(l=>l.carrinho==c.id);
-    if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>`;
+    if(!a&&c.status=='sem_bateria')return `<div onclick="recarregado('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-gray-400 bg-gray-100"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg" style="filter:grayscale(1);opacity:.7"><div class="flex-1"><b class="text-gray-600">${c.nome}</b><div class="text-xs text-gray-600">🔋 SEM BATERIA</div></div><span class="text-xs text-gray-400 text-right">toque se<br>recarregou</span></div>`;
+    if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><div class="text-right"><span class="text-[11px] text-gray-400 block mb-1">toque p/ iniciar</span><button onclick="event.stopPropagation();semBat('${c.id}')" class="b bg-gray-100 text-gray-600 text-xs" style="padding:6px 8px">🔋 Sem bateria</button></div></div>`;
     const p=a.status=='pausada',bn=inB(a);
     return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':bn?'border-purple-400 bg-purple-100':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':bn?'text-purple-700':'text-red-600'}">● ${p?'PAUSADO':bn?'BÔNUS':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
 }
+
+/* Bateria */
+async function semBat(id){if(!confirm('Marcar "'+cart(id).nome+'" como SEM BATERIA?'))return;try{await call('cartStatus',{id,status:'sem_bateria'});await load(true)}catch(e){alert('Erro: '+e)}}
+async function recarregado(id){if(!confirm('A bateria de "'+cart(id).nome+'" foi recarregada? Voltar para LIVRE?'))return;try{await call('cartStatus',{id,status:''});await load(true)}catch(e){alert('Erro: '+e)}}
 
 /* Modais */
 const M=h=>{document.querySelectorAll('.mdl').forEach(e=>e.remove());const d=document.createElement('div');d.className='mdl fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';d.innerHTML=`<div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[92vh] overflow-y-auto">${h}</div>`;d.onclick=e=>e.target==d&&d.remove();document.body.appendChild(d);return d};
@@ -153,6 +171,7 @@ const payVals=(d,id)=>{const o={};['pix','dinheiro','debito','credito'].forEach(
 const payBind=(d,id,cb)=>['pix','dinheiro','debito','credito'].forEach(k=>d.querySelector(`#${id}-${k}`).oninput=()=>{const v=payVals(d,id);d.querySelector(`#${id}-t`).textContent=brl(pg(v));cb&&cb(v)});
 
 function entry(cid){
+  if(cart(cid).status=='sem_bateria')return recarregado(cid);
   let pk=null,valor=0;
   const d=M(`<h2 class="text-2xl font-extrabold mb-1">Registrar Entrada</h2><div class="text-sm text-gray-500 mb-3">${cart(cid).nome}</div>
   <label class="text-sm text-gray-600">Celular (Opcional - Busca Cliente)</label><input id="e-cel" type="tel" inputmode="numeric" placeholder="(00) 00000-0000" class="in mb-1"><div id="e-fb" class="text-xs font-semibold mb-2 text-green-600"></div>
@@ -188,15 +207,40 @@ function panel(id){
   <div class="flex justify-between text-sm mb-2"><span>🕐 Entrada: <b>${hm(l.inicio)}</b></span><span class="${bd[1]} rounded-lg px-3 py-1 font-semibold">${bd[0]}</span></div>
   <div class="border-t pt-3 flex justify-between items-end"><div><div class="text-xs text-gray-400">🔒 Valor do Pacote (travado)</div><div class="text-3xl font-extrabold text-green-600">${brl(l.valor)}</div>${pg(l)>0?`<div class="text-xs text-gray-500">Pago: ${brl(pg(l))}</div>`:''}</div>
   <div class="flex gap-2"><button id="p-ps" class="b ${p?'bg-green-100 text-green-700':'bg-amber-100 text-amber-800'} text-sm">${p?'▶ Continuar':'⏸ Pausar'}</button><button id="p-mo" class="b bg-blue-50 text-blue-700 text-sm">+ Mais</button></div></div>
-  <div class="flex gap-3 mt-4"><button id="p-cn" class="b flex-1 bg-gray-100">Cancelar</button><button id="p-fn" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div>
+  <button id="p-sw" class="b w-full bg-indigo-50 text-indigo-700 mt-3">🔄 Trocar de brinquedo</button>
+  <div class="flex gap-3 mt-3"><button id="p-cn" class="b flex-1 bg-gray-100">Cancelar</button><button id="p-fn" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div>
   <button id="p-x" class="w-full text-gray-400 text-sm mt-3">Fechar</button>`);
   const g=s=>d.querySelector(s),act=async(a,x={})=>{try{await call(a,{id,...x});d.remove();await load(true)}catch(e){alert('Erro: '+e)}};
   tick();g('#p-x').onclick=()=>d.remove();
   g('#p-ps').onclick=()=>act(p?'resume':'pause');
   g('#p-mo').onclick=()=>{const m=+prompt('Quantos minutos adicionar? (R$ 1,50 por minuto)','5');if(m>0)act('more',{min:m})};
-  g('#p-cn').onclick=()=>confirm('Cancelar esta locação?')&&act('cancel');
+  g('#p-sw').onclick=()=>swap(l);
+  g('#p-cn').onclick=()=>cancelar(l);
   g('#p-ed').onclick=()=>edit(l);
   g('#p-fn').onclick=()=>fin(l)}
+function swap(l){
+  const busy=S.loc.filter(live).map(x=>String(x.carrinho)),free=S.carts.filter(c=>!busy.includes(String(c.id))&&c.status!='sem_bateria');
+  const d=M(`<h2 class="text-xl font-bold mb-1">Trocar de brinquedo</h2><div class="text-sm text-gray-500 mb-3">${esc(l.cliente)} está em <b>${esc(cart(l.carrinho).nome)}</b>. O tempo continua de onde está.</div>
+  ${free.length?free.map(c=>`<button type="button" data-c="${c.id}" class="sw card w-full p-2 mb-2 flex items-center gap-3 text-left border"><img src="${c.foto}" class="w-16 h-12 object-contain"><b class="flex-1">${esc(c.nome)}</b><span class="text-green-600 text-xs">● LIVRE</span></button>`).join(''):'<p class="text-center text-gray-400 my-4">Nenhum brinquedo livre no momento.</p>'}
+  <label class="flex items-start gap-2 text-sm mt-2"><input type="checkbox" id="sw-bat" class="mt-1"> <span>O brinquedo atual está sem bateria (marcar como 🔋 sem bateria)</span></label>
+  <button class="b w-full bg-gray-100 mt-4" id="sw-x">Voltar</button>`);
+  d.querySelector('#sw-x').onclick=()=>panel(l.id);
+  d.querySelectorAll('.sw').forEach(b=>b.onclick=async()=>{const c=cart(b.dataset.c);if(!confirm(`Trocar para "${c.nome}"? O tempo não muda.`))return;
+    try{await call('swap',{id:l.id,cart:b.dataset.c,baixa:d.querySelector('#sw-bat').checked,obs:`Trocou ${cart(l.carrinho).nome} → ${c.nome} às ${hm(Date.now())}`});d.remove();await load(true)}catch(e){alert('Erro: '+e)}})}
+function cancelar(l){
+  const R=['Criança não quis brincar','Criança com medo / chorou','Responsável desistiu','Carrinho sem bateria / com defeito','Entrou por engano'];
+  const d=M(`<h2 class="text-xl font-bold mb-1">Cancelar locação</h2><div class="text-sm text-gray-500 mb-3">${esc(l.cliente)} · ${esc(cart(l.carrinho).nome)}</div>
+  ${pg(l)>0?`<div class="bg-amber-50 text-amber-800 text-sm rounded-xl p-2 mb-3">⚠️ Já foi pago ${brl(pg(l))}. Lembre de devolver ao cliente.</div>`:''}
+  <label class="text-sm text-gray-600">Motivo da desistência</label>
+  <div class="flex flex-wrap gap-2 my-2">${R.map(r=>`<button type="button" class="mr b bg-gray-100 text-xs" style="padding:8px 10px">${r}</button>`).join('')}</div>
+  <textarea id="c-m" rows="3" class="in" placeholder="Escreva ou escolha o motivo (obrigatório)"></textarea>
+  <div class="flex gap-3 mt-4"><button class="b flex-1 bg-gray-100" id="c-x">Voltar</button><button class="b flex-1 text-white" style="background:#dc4f4a" id="c-ok">Cancelar locação</button></div>`);
+  const g=s=>d.querySelector(s);
+  d.querySelectorAll('.mr').forEach(b=>b.onclick=()=>{g('#c-m').value=b.textContent;d.querySelectorAll('.mr').forEach(x=>x.classList.remove('on'));b.classList.add('on')});
+  g('#c-x').onclick=()=>panel(l.id);
+  g('#c-ok').onclick=async()=>{const m=g('#c-m').value.trim();if(!m)return alert('Informe o motivo da desistência');
+    const b=g('#c-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
+    try{await call('cancel',{id:l.id,motivo:m});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Cancelar locação';alert('Erro: '+e)}}}
 function edit(l){
   const d=M(`<h2 class="text-xl font-bold mb-3">Editar dados</h2><label class="text-sm text-gray-600">Nome do Cliente</label><input id="d-n" class="in mb-2" value="${l.cliente||''}"><label class="text-sm text-gray-600">Referência</label><input id="d-r" class="in mb-2" value="${l.ref||''}"><label class="text-sm text-gray-600">Celular</label><input id="d-c" type="tel" class="in mb-3" value="${l.cel||''}"><div class="flex gap-3"><button class="b flex-1 bg-gray-100" id="d-x">Voltar</button><button class="b flex-1 bg-lime-500" id="d-ok">Salvar</button></div>`);
   d.querySelector('#d-x').onclick=()=>panel(l.id);
@@ -230,7 +274,7 @@ function addC(){
 async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load(true)}}
 
 /* Relatório e histórico */
-function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}${S.role=='admin'&&+x.bonus>0?`<div class="text-xs text-purple-600 mt-0.5">🎁 bônus: ${x.bonus} min</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div></div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
+function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}${S.role=='admin'&&+x.bonus>0?`<div class="text-xs text-purple-600 mt-0.5">🎁 bônus: ${x.bonus} min</div>`:''}${S.role=='admin'&&x.obs?`<div class="text-xs text-indigo-500 mt-0.5">🔄 ${esc(x.obs)}</div>`:''}${x.status=='cancelada'&&x.motivo?`<div class="text-xs text-red-500 mt-0.5">Motivo: ${esc(x.motivo)}</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div></div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
 const ymd=t=>new Date(+t-new Date(+t).getTimezoneOffset()*60000).toISOString().slice(0,10);
 let RF={f:ymd(Date.now()),t:ymd(Date.now())};
 const dm=v=>v.split('-').reverse().join('/');
@@ -246,6 +290,7 @@ function rel(){
     return `<div class="card p-4 mb-3 text-center"><div class="text-3xl font-bold text-lime-600">${l.length}</div><div class="text-sm">locações hoje · ${mins} min</div></div>`+lines(l.slice().reverse())}
   const a=new Date(RF.f+'T00:00:00').getTime(),z=new Date(RF.t+'T23:59:59.999').getTime(),hoje=ymd(Date.now()),um=RF.f==RF.t;
   const l=S.loc.filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
+  const cn=S.loc.filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status=='cancelada');
   const sum=k=>l.reduce((s,x)=>s+(+x[k]||0),0),rec=l.reduce((s,x)=>s+pg(x),0),pend=l.reduce((s,x)=>s+(settled(x)?0:Math.max(0,+x.valor-pg(x))),0);
   const qb=(q,t)=>`<button onclick="quick('${q}')" class="b bg-gray-100 text-xs flex-1" style="padding:8px 4px">${t}</button>`;
   let days='';
@@ -253,6 +298,6 @@ function rel(){
     days=`<div class="font-semibold mb-2">Por dia</div><div class="card p-3 mb-4">${Object.keys(g).sort().reverse().map(d=>`<div class="flex justify-between text-sm py-1 border-b last:border-0"><span>${dm(d).slice(0,5)}</span><span class="text-gray-500">${g[d].n} locações</span><b>${brl(g[d].v)}</b></div>`).join('')||'<div class="text-gray-400 text-center text-sm">Sem registros.</div>'}</div>`}
   return `<div class="card p-3 mb-3"><div class="flex gap-2 mb-2"><div class="flex-1"><label class="text-[11px] text-gray-500">De</label><input type="date" class="in" style="padding:8px" value="${RF.f}" max="${hoje}" onchange="setRF('f',this.value)"></div><div class="flex-1"><label class="text-[11px] text-gray-500">Até</label><input type="date" class="in" style="padding:8px" value="${RF.t}" max="${hoje}" onchange="setRF('t',this.value)"></div></div><div class="flex gap-2">${qb('hoje','Hoje')}${qb('ontem','Ontem')}${qb('7','7 dias')}${qb('mes','Este mês')}</div></div>
   <div class="card p-4 mb-3 text-center"><div class="text-sm text-gray-500">${um?(RF.f==hoje?'Recebido hoje':'Recebido em '+dm(RF.f)):'Recebido de '+dm(RF.f).slice(0,5)+' a '+dm(RF.t).slice(0,5)}</div><div class="text-3xl font-bold text-lime-600">${brl(rec)}</div><div class="text-sm">${l.length} locações · ${mins} min · A receber ${brl(pend)}</div></div>
-  <div class="grid grid-cols-2 gap-2 mb-4">${[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].map(x=>`<div class="card p-3 text-center"><div class="text-xs text-gray-500">${x[0]}</div><b>${brl(sum(x[1]))}</b></div>`).join('')}</div>`+days+`<div class="font-semibold mb-2">Locações</div>`+lines(l.slice().reverse())}
+  <div class="grid grid-cols-2 gap-2 mb-4">${[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].map(x=>`<div class="card p-3 text-center"><div class="text-xs text-gray-500">${x[0]}</div><b>${brl(sum(x[1]))}</b></div>`).join('')}</div>`+days+`<div class="font-semibold mb-2">Locações</div>`+lines(l.slice().reverse())+(cn.length?`<div class="font-semibold mt-4 mb-2">Desistências (${cn.length})</div>`+lines(cn.slice().reverse()):'')}
 function his(){return `<div class="font-semibold mb-2">Histórico</div>`+lines(S.loc.slice().reverse())}
 </script></body></html>
