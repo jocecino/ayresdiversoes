@@ -43,7 +43,10 @@ const $=s=>document.querySelector(s);
 const brl=v=>'R$ '+Number(v||0).toFixed(2).replace('.',',');
 const call=async(a,d={})=>{const r=await(await fetch(API,{method:'POST',body:JSON.stringify({a,p:S.p,...d})})).json();if(r.err)throw r.err;return r};
 const mmss=ms=>{ms=Math.max(0,Math.ceil(ms/1000));return String(Math.floor(ms/60)).padStart(2,'0')+':'+String(ms%60).padStart(2,'0')};
-const cart=id=>S.carts.find(c=>c.id==id)||{nome:'?',foto:''};
+const isPula=l=>String(l.carrinho)=='PULA';
+const cart=id=>String(id)=='PULA'?{nome:'Pula-pula',foto:''}:S.carts.find(c=>c.id==id)||{nome:'?',foto:''};
+const PH=()=>(S.cfg&&+S.cfg.pulaHora)||1;
+const byId=id=>S.loc.find(x=>x.id==id);
 const ph=s=>String(s||'').replace(/\D/g,'');
 const pg=x=>(+x.pix||0)+(+x.dinheiro||0)+(+x.debito||0)+(+x.credito||0);
 const isToday=t=>new Date(+t).toDateString()==new Date().toDateString();
@@ -107,13 +110,15 @@ $('#pw').onkeydown=e=>{if(e.key=='Enter')$('#go').click()}; /* sem 'return false
 {const ss=loadSess();if(ss&&ss.p){S.p=ss.p;if(ss.role)S.role=ss.role;entrar(true)}}
 
 /* Dados */
-async function load(f){try{const r=await call('state'),sg=JSON.stringify(r),ch=sg!=S.sig;S.sig=sg;S.carts=r.carts;S.loc=r.loc;if(f===true||(ch&&tab!='cad'))render()}catch(e){}}
+async function load(f){try{const r=await call('state'),sg=JSON.stringify(r),ch=sg!=S.sig;S.sig=sg;S.carts=r.carts;S.loc=r.loc;S.cfg=r.cfg||S.cfg;if(f===true||(ch&&tab!='cad'))render()}catch(e){}}
 async function refresh(){const i=$('#rf');i&&i.classList.add('spin');await load(true);const j=$('#rf');j&&j.classList.remove('spin')}
 function beep(n=3){if(!ac)return;if(ac.state=='suspended')ac.resume();[0,.4,.8].slice(0,n).forEach(t=>{const o=ac.createOscillator(),g=ac.createGain();o.frequency.value=880;o.connect(g);g.connect(ac.destination);g.gain.setValueAtTime(.4,ac.currentTime+t);o.start(ac.currentTime+t);o.stop(ac.currentTime+t+.3)});navigator.vibrate&&navigator.vibrate([300,100,300,100,300])}
 function tick(){S.loc.filter(live).forEach(l=>{
   const left=lf(l),end=l.status=='ativa'&&left<=0;
   document.querySelectorAll(`.tm[data-id="${l.id}"]`).forEach(e=>e.textContent=mmss(left));
   document.querySelectorAll(`.lb[data-id="${l.id}"]`).forEach(e=>e.textContent=end?'Tempo esgotado! Toque':l.status=='pausada'?'pausado':inB(l)?'de bônus':'restantes');
+  document.querySelectorAll(`.el[data-id="${l.id}"]`).forEach(e=>e.textContent=Math.max(0,Math.floor(((+l.minutos+(+l.bonus||0))*60000-left)/60000))+' min');
+  document.querySelectorAll(`.es[data-id="${l.id}"]`).forEach(e=>e.classList.toggle('hidden',!end));
   document.querySelectorAll(`[data-card="${l.id}"]`).forEach(e=>e.classList.toggle('pulse',end));});alerts()}
 
 /* Alertas: aviso 30s antes e tempo esgotado */
@@ -137,21 +142,21 @@ async function bonus(id,m){const l=S.loc.find(x=>x.id==id);if(l){DIS['e'+key(l)]
 
 /* Telas */
 function render(){
-  const tabs=S.role=='admin'?[['home','🏠','Principal'],['cad','➕','Cadastro'],['rel','📊','Relatório'],['his','🕘','Histórico']]:[['home','🏠','Principal'],['rel','📊','Relatório']];
+  const tabs=S.role=='admin'?[['home','🏎️','Carrinhos'],['pula','🤸','Pula-pula'],['cad','➕','Cadastro'],['rel','📊','Relatório'],['his','🕘','Histórico']]:[['home','🏎️','Carrinhos'],['pula','🤸','Pula-pula'],['rel','📊','Relatório']];
   if(!tabs.some(t=>t[0]==tab))tab='home';
   $('#app').innerHTML=`<header class="flex items-center gap-2 p-3 text-white" style="background:linear-gradient(135deg,var(--d),var(--p));padding-top:calc(env(safe-area-inset-top) + .75rem)">
     <img src="${LOGO}" class="w-10 h-10 rounded-full bg-white p-0.5 object-contain"><b class="flex-1 leading-tight">Ayres Diversões</b>
     <span class="text-xs font-bold bg-white/90 text-gray-800 rounded-full px-3 py-1">${S.role=='admin'?'Admin':'Funcionário'}</span>
     <button onclick="refresh()" class="text-xl px-1" aria-label="Atualizar"><span id="rf" style="display:inline-block;width:20px;height:20px;line-height:20px;text-align:center">↻</span></button>
     <button onclick="sair()" class="text-sm opacity-90 px-1">Sair</button></header>
-  <div class="p-4">${{home,cad,rel,his}[tab]()}</div>
+  <div class="p-4">${{home,pula,cad,rel,his}[tab]()}</div>
   <nav class="fixed bottom-0 inset-x-0 bg-white border-t flex justify-around max-w-md mx-auto" style="padding-bottom:env(safe-area-inset-bottom)">${tabs.map(t=>`<button onclick="setTab('${t[0]}')" class="flex-1 py-2 text-xs ${tab==t[0]?'text-lime-600 font-bold':'text-gray-400'}"><div class="text-xl">${t[1]}</div>${t[2]}</button>`).join('')}</nav>`;
   tick();
 }
 function home(){
   const bat=c=>{const d=c.status=='sem_bateria';return `<div class="flex gap-2 mt-2" onclick="event.stopPropagation()"><button onclick="setBat('${c.id}','')" class="b flex-1 text-xs ${d?'bg-gray-200 text-gray-500':'bg-green-600 text-white'}" style="padding:7px 4px">🔋 Carregado</button><button onclick="setBat('${c.id}','sem_bateria')" class="b flex-1 text-xs ${d?'bg-red-600 text-white':'bg-gray-200 text-gray-500'}" style="padding:7px 4px">🪫 Descarregado</button></div>`};
   const rk=c=>S.loc.some(l=>live(l)&&l.carrinho==c.id)?1:c.status=='sem_bateria'?2:0;
-  const act=S.loc.filter(live),n=S.carts.length,occ=c=>act.some(l=>l.carrinho==c.id),sb=S.carts.filter(c=>c.status=='sem_bateria'&&!occ(c)).length;
+  const act=S.loc.filter(l=>live(l)&&!isPula(l)),n=S.carts.length,occ=c=>act.some(l=>l.carrinho==c.id),sb=S.carts.filter(c=>c.status=='sem_bateria'&&!occ(c)).length;
   let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',Math.max(0,n-act.length-sb)],['Descarreg.',sb]].map(x=>`<div class="card flex-1 p-2"><div class="text-2xl font-bold">${x[1]}</div><div class="text-[10px] text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
   if(!n)h+='<p class="text-gray-400 text-center mt-10">Nenhum carrinho cadastrado.</p>';
   return h+S.carts.slice().sort((a,b)=>rk(a)-rk(b)).map(c=>{
@@ -162,8 +167,64 @@ function home(){
     return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':bn?'border-purple-400 bg-purple-100':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':bn?'text-purple-700':'text-red-600'}">● ${p?'PAUSADO':bn?'BÔNUS':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div><div ${(+a.valor-pg(a))>.005?`onclick="event.stopPropagation();pagar('${a.id}')"`:''}>${payPill(a)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
 }
 
+/* ===== PULA-PULA (R$ por hora, por criança) ===== */
+async function pAct(a,id,x={}){try{await call(a,{id,...x});await load(true)}catch(e){alert('Erro: '+e)}}
+function pMais(id){const m=+prompt(`Quantos minutos adicionar? (${brl(PH())} por hora, por criança)`,'30');if(m>0)pAct('more',id,{min:m})}
+function pBonus(id){const m=+prompt('Quantos minutos de BÔNUS (sem cobrar)?','1');if(m>0)pAct('bonus',id,{min:m})}
+function pula(){
+  const L=S.loc.filter(l=>live(l)&&isPula(l)),kids=L.reduce((s,l)=>s+(+l.qtd||1),0);
+  let h=`<h2 class="text-2xl font-extrabold">Painel de Controle</h2><div class="text-gray-500 mb-3">Tarifa: ${brl(PH())} por hora (por criança)</div>
+  <div class="flex gap-3 mb-3"><button onclick="RK='pula';setTab('rel')" class="b flex-1 bg-white border border-indigo-200 text-indigo-700" style="border-radius:16px;padding:14px">📊 Relatórios</button><button onclick="entryPula()" class="b flex-1 text-white font-bold" style="border-radius:16px;padding:14px;background:linear-gradient(135deg,#059669,#0d9488);box-shadow:0 8px 20px #05966955">＋ Nova Entrada</button></div>
+  <div class="text-sm text-gray-500 mb-3">🤸 Brincando agora: <b>${kids}</b> ${kids==1?'criança':'crianças'}</div>`;
+  if(!L.length)return h+'<p class="text-gray-400 text-center mt-10">Ninguém no pula-pula agora.<br>Toque em “Nova Entrada”.</p>';
+  return h+L.map(l=>{const p=l.status=='pausada',bd=badge(l),left=lf(l),end=l.status=='ativa'&&left<=0,bn=inB(l),q=+l.qtd||1;
+    const pend=bd[0]=='Pendente';
+    return `<div data-card="${l.id}" class="card p-4 mb-4 ${bn?'bg-purple-100':p?'bg-amber-50':''}" style="border-radius:22px;${end?'border:2px solid #fca5a5':''}">
+    <div class="flex justify-between items-start gap-2"><div class="text-2xl font-extrabold">${esc(l.cliente)} <button onclick="edit(byId('${l.id}'))" class="text-base text-indigo-500">✎</button></div>
+      <div class="text-right"><span class="es ${end?'':'hidden'} inline-block text-xs font-bold rounded-full px-3 py-1 bg-red-100 text-red-700" data-id="${l.id}">⚠ Esgotado!</span>${p?'<span class="inline-block text-xs font-bold rounded-full px-3 py-1 bg-amber-100 text-amber-800">⏸ Pausado</span>':''}${bn?'<span class="inline-block text-xs font-bold rounded-full px-3 py-1 bg-purple-200 text-purple-800">🎁 Bônus</span>':''}</div></div>
+    ${l.ref?`<div class="text-indigo-600 font-semibold">Ref: ${esc(l.ref)}</div>`:''}${l.cel?`<div class="text-gray-500 text-sm">Tel: ${esc(l.cel)}</div>`:''}
+    <div class="mt-3 text-[15px] leading-8"><div>👥 Qtd: <b>${q}</b></div><div>🕐 Entrada: <b>${hm(l.inicio)}</b></div><div>⏱ Ativo: <b class="el text-red-400" data-id="${l.id}"></b></div><div>⏳ Restante: <b class="tm" data-id="${l.id}"></b> <span class="lb text-xs text-red-500" data-id="${l.id}"></span></div></div>
+    <div class="flex justify-between items-center my-2"><span class="text-gray-500 text-sm">Status:</span>${pend?`<button onclick="pagar('${l.id}')" class="${bd[1]} rounded-lg px-3 py-1 font-semibold border border-amber-400">⏳ Pendente · pagar</button>`:`<span class="${bd[1]} rounded-lg px-3 py-1 font-semibold">✔ ${bd[0]}</span>`}</div>
+    <div class="border-t pt-3 flex justify-between items-end gap-2"><div><div class="text-xs text-gray-400">Valor Atual</div><div class="text-3xl font-extrabold text-green-600">${brl(l.valor)}</div>${pg(l)>0?`<div class="text-xs text-gray-500">Pago: ${brl(pg(l))}</div>`:''}</div>
+      <div class="flex gap-2 flex-wrap justify-end"><button onclick="pAct('${p?'resume':'pause'}','${l.id}')" class="b ${p?'bg-green-100 text-green-700':'bg-amber-100 text-amber-800'} text-sm">${p?'▶ Continuar':'⏸ Pausar'}</button><button onclick="pMais('${l.id}')" class="b bg-blue-50 text-blue-700 text-sm">＋ Mais</button><button onclick="pBonus('${l.id}')" class="b bg-purple-100 text-purple-700 text-sm">🎁</button></div></div>
+    <div class="flex gap-3 mt-3"><button onclick="cancelar(byId('${l.id}'))" class="b flex-1 bg-gray-100">Cancelar</button><button onclick="fin(byId('${l.id}'))" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div></div>`}).join('')}
+
+function entryPula(){
+  const H=PH(),PKP=[{m:30,l:'30 min'},{m:60,l:'1 hora'},{m:120,l:'2 horas'}];let valor=0;
+  const calc=(m,q)=>Math.round(m/60*H*q*100)/100;
+  const d=M(`<h2 class="text-2xl font-extrabold mb-1">Nova Entrada</h2><div class="text-sm text-gray-500 mb-3">Pula-pula · ${brl(H)} por hora (por criança)</div>
+  <label class="text-sm text-gray-600">Celular (Opcional - Busca Cliente)</label><input id="q-cel" type="tel" inputmode="numeric" placeholder="(00) 00000-0000" class="in mb-1"><div id="q-fb" class="text-xs font-semibold mb-2 text-green-600"></div>
+  <label class="text-sm text-gray-600">Nome de Referência (Responsável)</label><input id="q-ref" placeholder="Ex: Maria (Mãe)" class="in mb-3">
+  <label class="text-sm text-gray-600">Nome do Cliente</label><input id="q-nome" placeholder="Ex: Joãozinho" class="in mb-3">
+  <label class="text-sm text-gray-600">Quantidade de crianças</label><input id="q-qtd" type="number" min="1" value="1" inputmode="numeric" class="in mb-3">
+  <label class="text-sm text-gray-600">Tempo</label>
+  <div class="grid grid-cols-3 gap-2 my-2">${PKP.map((x,i)=>`<button type="button" class="pk b border bg-gray-50 text-sm" data-m="${x.m}">${x.l}</button>`).join('')}</div>
+  <label class="text-sm text-gray-600">Minutos</label><input id="q-min" type="number" inputmode="numeric" placeholder="Ex: 30" class="in mb-1"><div id="q-val" class="text-right font-bold text-xl text-green-600 mb-3">R$ 0,00</div>
+  <label class="text-sm text-gray-600">Status de Pagamento Inicial</label><select id="q-st" class="in mb-3"><option value="P">Pagar ao Sair / Futuro</option><option value="G">Já Pagou Agora</option></select><div id="q-pay" class="hidden mb-3">${payHTML('qp')}</div>
+  <div class="flex gap-3"><button class="b flex-1 bg-gray-100" id="q-cx">Cancelar</button><button class="b flex-1 bg-lime-500" id="q-ok">▶ Iniciar</button></div>`);
+  const g=s=>d.querySelector(s),recalc=()=>{valor=calc(+g('#q-min').value||0,Math.max(1,+g('#q-qtd').value||1));g('#q-val').textContent=brl(valor);
+    if(g('#q-st').value=='G'){g('#qp-dinheiro').value=valor?valor.toFixed(2):'';g('#qp-t').textContent=brl(valor)}};
+  payBind(d,'qp');
+  d.querySelectorAll('.pk').forEach(b=>b.onclick=()=>{d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));b.classList.add('on');g('#q-min').value=b.dataset.m;recalc()});
+  g('#q-min').oninput=()=>{d.querySelectorAll('.pk').forEach(x=>x.classList.remove('on'));recalc()};
+  g('#q-qtd').oninput=recalc;
+  g('#q-st').onchange=()=>{g('#q-pay').classList.toggle('hidden',g('#q-st').value!='G');recalc()};
+  g('#q-cel').oninput=()=>{const c=ph(g('#q-cel').value),fb=g('#q-fb');fb.textContent='';if(c.length<4)return;
+    const h=S.loc.filter(l=>ph(l.cel)==c&&l.status!='cancelada');if(!h.length)return;const u=h[h.length-1];
+    if(!g('#q-nome').value)g('#q-nome').value=u.cliente||'';if(!g('#q-ref').value)g('#q-ref').value=u.ref||'';
+    fb.textContent=`Cliente encontrado! Já soma ${h.length} participação(ões).`};
+  g('#q-cx').onclick=()=>d.remove();
+  g('#q-ok').onclick=async()=>{const min=+g('#q-min').value,qtd=Math.max(1,Math.floor(+g('#q-qtd').value||1));
+    if(!g('#q-nome').value.trim())return alert('Informe o nome do cliente');if(min<1)return alert('Informe os minutos ou escolha um tempo');
+    const b=g('#q-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';if(ac&&ac.state=='suspended')ac.resume();
+    const pay=g('#q-st').value=='G'?payVals(d,'qp'):{};
+    try{await call('start',{cart:'PULA',cliente:g('#q-nome').value.trim(),ref:g('#q-ref').value.trim(),cel:ph(g('#q-cel').value),min,qtd,valor:calc(min,qtd),...pay});d.remove();await load(true)}
+    catch(e){b.disabled=false;b.textContent='▶ Iniciar';alert('Erro: '+e)}}}
+
 /* Bateria: Carregado / Descarregado */
-async function setBat(id,st){const c=S.carts.find(x=>x.id==id);if(!c||(c.status||'')==st)return;c.status=st;render();
+async function setBat(id,st){const c=S.carts.find(x=>x.id==id);if(!c||(c.status||'')==st)return;
+  if(!confirm(st=='sem_bateria'?`Marcar "${c.nome}" como DESCARREGADO?\n\nEle ficará bloqueado e não poderá iniciar novas entradas.`:`Marcar "${c.nome}" como CARREGADO?\n\nEle ficará liberado para novas entradas.`))return;
+  c.status=st;render();
   try{await call('cartStatus',{id,status:st})}catch(e){alert('Erro: '+e);load(true)}}
 
 /* Modais */
@@ -258,7 +319,7 @@ function swap(l){
   d.querySelectorAll('.sw').forEach(b=>b.onclick=async()=>{const c=cart(b.dataset.c);if(!confirm(`Trocar para "${c.nome}"? O tempo não muda.`))return;
     try{await call('swap',{id:l.id,cart:b.dataset.c,baixa:d.querySelector('#sw-bat').checked,obs:`Trocou ${cart(l.carrinho).nome} → ${c.nome} às ${hm(Date.now())}`});d.remove();await load(true)}catch(e){alert('Erro: '+e)}})}
 function cancelar(l){
-  const R=['Criança não quis brincar','Criança com medo / chorou','Responsável desistiu','Carrinho sem bateria / com defeito','Entrou por engano'];
+  const R=isPula(l)?['Criança não quis brincar','Criança com medo / chorou','Responsável desistiu','Entrou por engano']:['Criança não quis brincar','Criança com medo / chorou','Responsável desistiu','Carrinho sem bateria / com defeito','Entrou por engano'];
   const d=M(`<h2 class="text-xl font-bold mb-1">Cancelar locação</h2><div class="text-sm text-gray-500 mb-3">${esc(l.cliente)} · ${esc(cart(l.carrinho).nome)}</div>
   ${pg(l)>0?`<div class="bg-amber-50 text-amber-800 text-sm rounded-xl p-2 mb-3">⚠️ Já foi pago ${brl(pg(l))}. Lembre de devolver ao cliente.</div>`:''}
   <label class="text-sm text-gray-600">Motivo da desistência</label>
@@ -267,14 +328,14 @@ function cancelar(l){
   <div class="flex gap-3 mt-4"><button class="b flex-1 bg-gray-100" id="c-x">Voltar</button><button class="b flex-1 text-white" style="background:#dc4f4a" id="c-ok">Cancelar locação</button></div>`);
   const g=s=>d.querySelector(s);
   d.querySelectorAll('.mr').forEach(b=>b.onclick=()=>{g('#c-m').value=b.textContent;d.querySelectorAll('.mr').forEach(x=>x.classList.remove('on'));b.classList.add('on')});
-  g('#c-x').onclick=()=>panel(l.id);
+  g('#c-x').onclick=()=>isPula(l)?d.remove():panel(l.id);
   g('#c-ok').onclick=async()=>{const m=g('#c-m').value.trim();if(!m)return alert('Informe o motivo da desistência');
     const b=g('#c-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
     try{await call('cancel',{id:l.id,motivo:m});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Cancelar locação';alert('Erro: '+e)}}}
 function edit(l){
   const d=M(`<h2 class="text-xl font-bold mb-3">Editar dados</h2><label class="text-sm text-gray-600">Nome do Cliente</label><input id="d-n" class="in mb-2" value="${l.cliente||''}"><label class="text-sm text-gray-600">Referência</label><input id="d-r" class="in mb-2" value="${l.ref||''}"><label class="text-sm text-gray-600">Celular</label><input id="d-c" type="tel" class="in mb-3" value="${l.cel||''}"><div class="flex gap-3"><button class="b flex-1 bg-gray-100" id="d-x">Voltar</button><button class="b flex-1 bg-lime-500" id="d-ok">Salvar</button></div>`);
-  d.querySelector('#d-x').onclick=()=>panel(l.id);
-  d.querySelector('#d-ok').onclick=async()=>{try{await call('edit',{id:l.id,cliente:d.querySelector('#d-n').value.trim(),ref:d.querySelector('#d-r').value.trim(),cel:ph(d.querySelector('#d-c').value)});await load(true);panel(l.id)}catch(e){alert('Erro: '+e)}}}
+  d.querySelector('#d-x').onclick=()=>isPula(l)?d.remove():panel(l.id);
+  d.querySelector('#d-ok').onclick=async()=>{try{await call('edit',{id:l.id,cliente:d.querySelector('#d-n').value.trim(),ref:d.querySelector('#d-r').value.trim(),cel:ph(d.querySelector('#d-c').value)});await load(true);isPula(l)?d.remove():panel(l.id)}catch(e){alert('Erro: '+e)}}}
 function fin(l){
   const rest=Math.max(0,+l.valor-pg(l));
   const d=M(`<h2 class="text-xl font-bold mb-1">Finalizar — ${l.cliente||''}</h2><div class="flex justify-between my-3"><div><div class="text-xs text-gray-400">Valor</div><b class="text-xl">${brl(l.valor)}</b></div><div><div class="text-xs text-gray-400">Já pago</div><b class="text-xl">${brl(pg(l))}</b></div><div><div class="text-xs text-gray-400">A receber</div><b class="text-xl text-red-600">${brl(rest)}</b></div></div>
@@ -284,7 +345,7 @@ function fin(l){
   if(rest>0){payBind(d,'fp');g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest);
     g('#f-cor').onchange=()=>{const on=g('#f-cor').checked;g('#f-cmw').classList.toggle('hidden',!on);['pix','dinheiro','debito','credito'].forEach(k=>g('#fp-'+k).value='');
       if(on){g('#fp-t').textContent=brl(0);g('#f-cm').focus()}else{g('#fp-dinheiro').value=rest.toFixed(2);g('#fp-t').textContent=brl(rest)}}}
-  g('#f-x').onclick=()=>panel(l.id);
+  g('#f-x').onclick=()=>isPula(l)?d.remove():panel(l.id);
   g('#f-ok').onclick=async()=>{let extra={};if(rest>0){pay=payVals(d,'fp');const cor=g('#f-cor').checked;
     if(cor){const m=g('#f-cm').value.trim();if(!m)return alert('Informe o motivo de não cobrar o restante');const novo=pg(l)+pg(pay),sobra=+l.valor-novo;if(sobra>.005)extra={valor:novo,obs:`Cortesia: ${brl(sobra)} não cobrado — ${m} (${new Date().toLocaleString('pt-BR')})`}}
     else if(pg(pay)<rest-.005&&!confirm(`Falta ${brl(rest-pg(pay))}. Finalizar mesmo assim? Será registrado como Pago com o valor recebido.`))return}
@@ -308,7 +369,7 @@ function addC(){
 async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load(true)}}
 
 /* Relatório e histórico */
-function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}${S.role=='admin'&&+x.bonus>0?`<div class="text-xs text-purple-600 mt-0.5">🎁 bônus: ${x.bonus} min</div>`:''}${S.role=='admin'&&x.obs?`<div class="text-xs text-indigo-500 mt-0.5">📝 ${esc(x.obs)}</div>`:''}${x.status=='cancelada'&&x.motivo?`<div class="text-xs text-red-500 mt-0.5">Motivo: ${esc(x.motivo)}</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div>${S.role=='admin'&&x.status!='cancelada'?`<button onclick="editPay('${x.id}')" class="text-[11px] text-indigo-600 underline mt-1">✎ editar pagamento</button>`:''}</div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
+function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${isPula(x)?' · 👥 '+(x.qtd||1):''}${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}${S.role=='admin'&&+x.bonus>0?`<div class="text-xs text-purple-600 mt-0.5">🎁 bônus: ${x.bonus} min</div>`:''}${S.role=='admin'&&x.obs?`<div class="text-xs text-indigo-500 mt-0.5">📝 ${esc(x.obs)}</div>`:''}${x.status=='cancelada'&&x.motivo?`<div class="text-xs text-red-500 mt-0.5">Motivo: ${esc(x.motivo)}</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div>${S.role=='admin'&&x.status!='cancelada'?`<button onclick="editPay('${x.id}')" class="text-[11px] text-indigo-600 underline mt-1">✎ editar pagamento</button>`:''}</div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
 const ymd=t=>new Date(+t-new Date(+t).getTimezoneOffset()*60000).toISOString().slice(0,10);
 let RF={f:ymd(Date.now()),t:ymd(Date.now())};
 const dm=v=>v.split('-').reverse().join('/');
@@ -319,12 +380,16 @@ function quick(q){const d=new Date(),h=ymd(d);
   else if(q=='7'){d.setDate(d.getDate()-6);RF={f:ymd(d),t:h}}
   else if(q=='mes'){d.setDate(1);RF={f:ymd(d),t:h}}
   render()}
-function rel(){
-  if(S.role!='admin'){const l=S.loc.filter(x=>isToday(x.inicio)&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
+let RK='todos';
+const scope=()=>S.loc.filter(x=>RK=='pula'?isPula(x):RK=='cart'?!isPula(x):true);
+function chipsRK(){return `<div class="flex gap-2 mb-3">${[['todos','Todos'],['cart','Carrinhos'],['pula','Pula-pula']].map(c=>`<button onclick="RK='${c[0]}';render()" class="b flex-1 text-xs ${RK==c[0]?'text-white':'bg-gray-100 text-gray-600'}" style="padding:8px 4px;${RK==c[0]?'background:#475569':''}">${c[1]}</button>`).join('')}</div>`}
+function rel(){return chipsRK()+rel0()}
+function rel0(){
+  if(S.role!='admin'){const l=scope().filter(x=>isToday(x.inicio)&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
     return `<div class="card p-4 mb-3 text-center"><div class="text-3xl font-bold text-lime-600">${l.length}</div><div class="text-sm">locações hoje · ${mins} min</div></div>`+lines(l.slice().reverse())}
   const a=new Date(RF.f+'T00:00:00').getTime(),z=new Date(RF.t+'T23:59:59.999').getTime(),hoje=ymd(Date.now()),um=RF.f==RF.t;
-  const l=S.loc.filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
-  const cn=S.loc.filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status=='cancelada');
+  const l=scope().filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status!='cancelada'),mins=l.reduce((s,x)=>s+ +x.minutos,0);
+  const cn=scope().filter(x=>+x.inicio>=a&&+x.inicio<=z&&x.status=='cancelada');
   const sum=k=>l.reduce((s,x)=>s+(+x[k]||0),0),rec=l.reduce((s,x)=>s+pg(x),0),pend=l.reduce((s,x)=>s+(settled(x)?0:Math.max(0,+x.valor-pg(x))),0);
   const qb=(q,t)=>`<button onclick="quick('${q}')" class="b bg-gray-100 text-xs flex-1" style="padding:8px 4px">${t}</button>`;
   let days='';
@@ -333,5 +398,6 @@ function rel(){
   return `<div class="card p-3 mb-3"><div class="flex gap-2 mb-2"><div class="flex-1"><label class="text-[11px] text-gray-500">De</label><input type="date" class="in" style="padding:8px" value="${RF.f}" max="${hoje}" onchange="setRF('f',this.value)"></div><div class="flex-1"><label class="text-[11px] text-gray-500">Até</label><input type="date" class="in" style="padding:8px" value="${RF.t}" max="${hoje}" onchange="setRF('t',this.value)"></div></div><div class="flex gap-2">${qb('hoje','Hoje')}${qb('ontem','Ontem')}${qb('7','7 dias')}${qb('mes','Este mês')}</div></div>
   <div class="card p-4 mb-3 text-center"><div class="text-sm text-gray-500">${um?(RF.f==hoje?'Recebido hoje':'Recebido em '+dm(RF.f)):'Recebido de '+dm(RF.f).slice(0,5)+' a '+dm(RF.t).slice(0,5)}</div><div class="text-3xl font-bold text-lime-600">${brl(rec)}</div><div class="text-sm">${l.length} locações · ${mins} min · A receber ${brl(pend)}</div></div>
   <div class="grid grid-cols-2 gap-2 mb-4">${[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].map(x=>`<div class="card p-3 text-center"><div class="text-xs text-gray-500">${x[0]}</div><b>${brl(sum(x[1]))}</b></div>`).join('')}</div>`+days+`<div class="font-semibold mb-2">Locações</div>`+lines(l.slice().reverse())+(cn.length?`<div class="font-semibold mt-4 mb-2">Desistências (${cn.length})</div>`+lines(cn.slice().reverse()):'')}
-function his(){return `<div class="font-semibold mb-2">Histórico</div>`+lines(S.loc.slice().reverse())}
+function his(){return chipsRK()+`<div class="font-semibold mb-2">Histórico</div>`+lines(scope().slice().reverse())}
 </script></body></html>
+
