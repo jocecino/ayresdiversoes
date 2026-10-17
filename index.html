@@ -159,7 +159,7 @@ function home(){
     if(!a&&c.status=='sem_bateria')return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 border-l-4 border-gray-400 bg-gray-100"><div class="flex items-center gap-3"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg" style="filter:grayscale(1);opacity:.7"><div class="flex-1"><b class="text-gray-600">${c.nome}</b><div class="text-xs text-gray-600">🪫 DESCARREGADO</div></div></div>${bat(c)}</div>`;
     if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 border-l-4 border-green-500"><div class="flex items-center gap-3"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE · 🔋 carregado</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>${bat(c)}</div>`;
     const p=a.status=='pausada',bn=inB(a);
-    return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':bn?'border-purple-400 bg-purple-100':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':bn?'text-purple-700':'text-red-600'}">● ${p?'PAUSADO':bn?'BÔNUS':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div><div>${payPill(a)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
+    return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':bn?'border-purple-400 bg-purple-100':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':bn?'text-purple-700':'text-red-600'}">● ${p?'PAUSADO':bn?'BÔNUS':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div><div ${(+a.valor-pg(a))>.005?`onclick="event.stopPropagation();pagar('${a.id}')"`:''}>${payPill(a)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
 }
 
 /* Bateria: Carregado / Descarregado */
@@ -206,20 +206,47 @@ function panel(id){
   const d=M(`<div class="flex justify-between items-start gap-2"><div><div class="text-2xl font-extrabold">${l.cliente||'Cliente'} <button id="p-ed" class="text-base text-indigo-500">✎</button></div>${l.ref?`<div class="text-indigo-600 font-semibold">Ref: ${l.ref}</div>`:''}${l.cel?`<div class="text-gray-500">Tel: ${l.cel}</div>`:''}</div><span class="text-xs bg-blue-100 text-blue-700 rounded-full px-3 py-1 whitespace-nowrap">Meta: ${l.minutos} min</span></div>
   <div class="text-sm text-gray-500 mt-1">${cart(l.carrinho).nome}</div>
   <div class="text-center my-4"><div class="tm text-5xl font-extrabold" data-id="${l.id}"></div><div class="lb text-sm text-red-500" data-id="${l.id}"></div></div>
-  <div class="flex justify-between text-sm mb-2"><span>🕐 Entrada: <b>${hm(l.inicio)}</b></span><span class="${bd[1]} rounded-lg px-3 py-1 font-semibold">${bd[0]}</span></div>
+  <div class="flex justify-between text-sm mb-2"><span>🕐 Entrada: <b>${hm(l.inicio)}</b></span>${bd[0]=='Pendente'?`<button id="p-pg" class="${bd[1]} rounded-lg px-3 py-1 font-semibold border border-amber-400">⏳ Pendente · toque p/ pagar</button>`:`<span class="${bd[1]} rounded-lg px-3 py-1 font-semibold">${bd[0]}</span>`}</div>
   <div class="border-t pt-3 flex justify-between items-end"><div><div class="text-xs text-gray-400">🔒 Valor do Pacote (travado)</div><div class="text-3xl font-extrabold text-green-600">${brl(l.valor)}</div>${pg(l)>0?`<div class="text-xs text-gray-500">Pago: ${brl(pg(l))}</div>`:''}</div>
   <div class="flex gap-2"><button id="p-ps" class="b ${p?'bg-green-100 text-green-700':'bg-amber-100 text-amber-800'} text-sm">${p?'▶ Continuar':'⏸ Pausar'}</button><button id="p-mo" class="b bg-blue-50 text-blue-700 text-sm">+ Mais</button></div></div>
   <button id="p-sw" class="b w-full bg-indigo-50 text-indigo-700 mt-3">🔄 Trocar de brinquedo</button>
   <div class="flex gap-3 mt-3"><button id="p-cn" class="b flex-1 bg-gray-100">Cancelar</button><button id="p-fn" class="b flex-1 text-white" style="background:#dc4f4a">Finalizar</button></div>
-  <button id="p-x" class="w-full text-gray-400 text-sm mt-3">Fechar</button>`);
+  <button id="p-x" class="b w-full mt-3 text-white" style="background:#475569">Fechar</button>`);
   const g=s=>d.querySelector(s),act=async(a,x={})=>{try{await call(a,{id,...x});d.remove();await load(true)}catch(e){alert('Erro: '+e)}};
   tick();g('#p-x').onclick=()=>d.remove();
   g('#p-ps').onclick=()=>act(p?'resume':'pause');
   g('#p-mo').onclick=()=>{const m=+prompt('Quantos minutos adicionar? (R$ 1,50 por minuto)','5');if(m>0)act('more',{min:m})};
   g('#p-sw').onclick=()=>swap(l);
+  {const pb=g('#p-pg');if(pb)pb.onclick=()=>pagar(l.id)}
   g('#p-cn').onclick=()=>cancelar(l);
   g('#p-ed').onclick=()=>edit(l);
   g('#p-fn').onclick=()=>fin(l)}
+function pagar(id){
+  const l=S.loc.find(x=>x.id==id);if(!l||!live(l))return;const rest=Math.max(0,+l.valor-pg(l));
+  const d=M(`<h2 class="text-xl font-bold mb-1">Registrar pagamento</h2><div class="text-sm text-gray-500 mb-3">${esc(l.cliente)} · ${esc(cart(l.carrinho).nome)}</div>
+  <div class="flex justify-between mb-3 text-sm"><div>Valor<br><b>${brl(l.valor)}</b></div><div>Já pago<br><b>${brl(pg(l))}</b></div><div>A receber<br><b class="text-red-600">${brl(rest)}</b></div></div>
+  <div class="text-xs font-bold text-gray-600 mb-1">Formas de Pagamento:</div>${payHTML('pp')}
+  <div class="flex gap-3 mt-4"><button class="b flex-1 bg-gray-100" id="pp-x">Voltar</button><button class="b flex-1 bg-lime-500" id="pp-ok">Confirmar pagamento</button></div>`);
+  const g=s=>d.querySelector(s);payBind(d,'pp');if(rest>0){g('#pp-dinheiro').value=rest.toFixed(2);g('#pp-t').textContent=brl(rest)}
+  g('#pp-x').onclick=()=>d.remove();
+  g('#pp-ok').onclick=async()=>{const v=payVals(d,'pp');if(pg(v)<=0)return alert('Informe o valor pago');
+    const b=g('#pp-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
+    try{await call('pay',{id,...v});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Confirmar pagamento';alert('Erro: '+e)}}}
+function editPay(id){
+  const x=S.loc.find(l=>l.id==id);if(!x||S.role!='admin')return;
+  const d=M(`<h2 class="text-xl font-bold mb-1">Editar pagamento</h2><div class="text-sm text-gray-500 mb-3">${esc(x.cliente)} · ${esc(cart(x.carrinho).nome)} · ${new Date(+x.inicio).toLocaleString('pt-BR')}</div>
+  <label class="text-sm text-gray-600">Valor cobrado (R$)</label><input id="ew-valor" type="number" step="0.01" inputmode="decimal" class="in mb-3" value="${(+x.valor||0).toFixed(2)}">
+  <div class="text-xs font-bold text-gray-600 mb-1">Como foi pago:</div>${payHTML('ew')}
+  <div class="text-xs text-gray-500 mt-3">Use para corrigir a forma de pagamento (ex.: foi lançado Dinheiro, mas o cliente pagou no Pix). A alteração fica registrada na locação.</div>
+  <div class="flex gap-3 mt-4"><button class="b flex-1 bg-gray-100" id="ew-x">Voltar</button><button class="b flex-1 bg-lime-500" id="ew-ok">Salvar</button></div>`);
+  const g=s=>d.querySelector(s);
+  ['pix','dinheiro','debito','credito'].forEach(k=>g('#ew-'+k).value=+x[k]?(+x[k]).toFixed(2):'');
+  g('#ew-t').textContent=brl(pg(x));payBind(d,'ew');
+  g('#ew-x').onclick=()=>d.remove();
+  g('#ew-ok').onclick=async()=>{const v=payVals(d,'ew'),valor=+g('#ew-valor').value;if(!(valor>=0))return alert('Valor inválido');
+    const obs=`Pagamento editado pelo admin em ${new Date().toLocaleString('pt-BR')} (antes: ${meth(x)||'sem pagamento'}; valor ${brl(x.valor)})`;
+    const b=g('#ew-ok');b.disabled=true;b.innerHTML='<span class="spin"></span>';
+    try{await call('setPay',{id,valor,...v,obs});d.remove();await load(true)}catch(e){b.disabled=false;b.textContent='Salvar';alert('Erro: '+e)}}}
 function swap(l){
   const busy=S.loc.filter(live).map(x=>String(x.carrinho)),free=S.carts.filter(c=>!busy.includes(String(c.id))&&c.status!='sem_bateria');
   const d=M(`<h2 class="text-xl font-bold mb-1">Trocar de brinquedo</h2><div class="text-sm text-gray-500 mb-3">${esc(l.cliente)} está em <b>${esc(cart(l.carrinho).nome)}</b>. O tempo continua de onde está.</div>
@@ -276,7 +303,7 @@ function addC(){
 async function delC(id){if(confirm('Excluir carrinho?')){await call('delCart',{id});load(true)}}
 
 /* Relatório e histórico */
-function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}${S.role=='admin'&&+x.bonus>0?`<div class="text-xs text-purple-600 mt-0.5">🎁 bônus: ${x.bonus} min</div>`:''}${S.role=='admin'&&x.obs?`<div class="text-xs text-indigo-500 mt-0.5">🔄 ${esc(x.obs)}</div>`:''}${x.status=='cancelada'&&x.motivo?`<div class="text-xs text-red-500 mt-0.5">Motivo: ${esc(x.motivo)}</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div></div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
+function lines(l){return l.map(x=>{const b=badge(x),m=meth(x);return `<div class="card p-3 mb-2 flex justify-between gap-2"><div class="min-w-0"><b>${x.cliente||'Cliente'}</b> <span class="text-xs text-gray-400">${cart(x.carrinho).nome}</span><div class="text-xs text-gray-500">${new Date(+x.inicio).toLocaleString('pt-BR')} · ${x.minutos} min${x.cel?' · '+x.cel:''}</div>${m?`<div class="text-xs text-gray-500 mt-0.5">${m}</div>`:''}${S.role=='admin'&&+x.bonus>0?`<div class="text-xs text-purple-600 mt-0.5">🎁 bônus: ${x.bonus} min</div>`:''}${S.role=='admin'&&x.obs?`<div class="text-xs text-indigo-500 mt-0.5">📝 ${esc(x.obs)}</div>`:''}${x.status=='cancelada'&&x.motivo?`<div class="text-xs text-red-500 mt-0.5">Motivo: ${esc(x.motivo)}</div>`:''}</div><div class="text-right"><b>${brl(shown(x))}</b><div class="text-[11px] ${b[1]} rounded px-2">${b[0]}</div>${S.role=='admin'&&x.status!='cancelada'?`<button onclick="editPay('${x.id}')" class="text-[11px] text-indigo-600 underline mt-1">✎ editar pagamento</button>`:''}</div></div>`}).join('')||'<p class="text-gray-400 text-center mt-6">Sem registros.</p>'}
 const ymd=t=>new Date(+t-new Date(+t).getTimezoneOffset()*60000).toISOString().slice(0,10);
 let RF={f:ymd(Date.now()),t:ymd(Date.now())};
 const dm=v=>v.split('-').reverse().join('/');
