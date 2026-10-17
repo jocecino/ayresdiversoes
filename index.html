@@ -53,6 +53,7 @@ const inB=l=>l.status=='ativa'&&+l.bonusIni>0&&Date.now()>=+l.bonusIni;
 const live=l=>l.status=='ativa'||l.status=='pausada';
 const settled=x=>x.status=='finalizada'&&pg(x)>0;
 const badge=l=>l.status=='cancelada'?['Cancelada','bg-gray-200 text-gray-600']:(pg(l)>=+l.valor-.005||settled(l))?['Pago','bg-green-100 text-green-700']:['Pendente','bg-amber-100 text-amber-800'];
+const payPill=l=>{const rest=Math.max(0,+l.valor-pg(l));return rest<=.005?'<span class="inline-block mt-1 text-[11px] font-bold rounded-full px-2 py-0.5 bg-green-100 text-green-700">✔ PAGO</span>':`<span class="inline-block mt-1 text-[11px] font-bold rounded-full px-2 py-0.5 bg-amber-100 text-amber-800">⏳ PENDENTE · falta ${brl(rest)}</span>`};
 const shown=x=>settled(x)?pg(x):+x.valor;
 const meth=x=>[['Pix','pix'],['Dinheiro','dinheiro'],['Débito','debito'],['Crédito','credito']].filter(m=>+x[m[1]]>0).map(m=>m[0]+' '+brl(x[m[1]])).join(' · ');
 
@@ -126,7 +127,7 @@ function alerts(){
   ws.forEach(l=>{const k='w'+key(l);if(!beeped[k]){beeped[k]=1;beep(1)}});
   es.forEach(l=>{const k='e'+key(l);if(!beeped[k]){beeped[k]=1;beep(3)}});
   const sig=ws.map(key).join()+'|'+es.map(key).join();if(sig==alSig)return;alSig=sig;
-  const nm=l=>`<b>${l.cliente||'Cliente'}</b> · ${cart(l.carrinho).nome}`;
+  const nm=l=>`<b>${l.cliente||'Cliente'}</b> · ${cart(l.carrinho).nome}<br>${payPill(l)}`;
   $('#alin').innerHTML=es.map(l=>`<div style="pointer-events:auto;background:linear-gradient(135deg,#dc2626,#e11d48);color:#fff;border-radius:18px;padding:14px;margin-bottom:8px;box-shadow:0 8px 24px #0005"><div class="font-extrabold">⚠️ ATENÇÃO: Tempo Esgotado!</div><div class="text-sm mb-2">${nm(l)}</div><div class="flex gap-2"><button onclick="bonus('${l.id}',2)" class="b flex-1 bg-white text-red-700 text-sm">🎁 +2 min bônus</button><button onclick="bonus('${l.id}',5)" class="b flex-1 bg-white text-red-700 text-sm">🎁 +5 min bônus</button><button onclick="disE('${l.id}')" class="b flex-1 text-white text-sm" style="background:#7f1d1d">🔇 Dispensar de vez</button></div></div>`).join('')+
    ws.map(l=>`<div style="pointer-events:auto;background:#f59e0b;color:#111;border-radius:18px;padding:12px 14px;margin-bottom:8px;box-shadow:0 8px 24px #0004" class="flex items-center gap-3"><div class="flex-1 text-sm">⏰ <b>Faltam 30 segundos!</b><br>${nm(l)}</div><button onclick="disW('${l.id}')" class="b bg-white text-sm">OK</button></div>`).join('')}
 function disW(id){const l=S.loc.find(x=>x.id==id);if(l){DIS['w'+key(l)]=1;saveDis();alerts()}}
@@ -148,21 +149,22 @@ function render(){
   tick();
 }
 function home(){
+  const bat=c=>{const d=c.status=='sem_bateria';return `<div class="flex gap-2 mt-2" onclick="event.stopPropagation()"><button onclick="setBat('${c.id}','')" class="b flex-1 text-xs ${d?'bg-gray-200 text-gray-500':'bg-green-600 text-white'}" style="padding:7px 4px">🔋 Carregado</button><button onclick="setBat('${c.id}','sem_bateria')" class="b flex-1 text-xs ${d?'bg-red-600 text-white':'bg-gray-200 text-gray-500'}" style="padding:7px 4px">🪫 Descarregado</button></div>`};
   const rk=c=>S.loc.some(l=>live(l)&&l.carrinho==c.id)?1:c.status=='sem_bateria'?2:0;
   const act=S.loc.filter(live),n=S.carts.length,occ=c=>act.some(l=>l.carrinho==c.id),sb=S.carts.filter(c=>c.status=='sem_bateria'&&!occ(c)).length;
-  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',Math.max(0,n-act.length-sb)],['Sem bateria',sb]].map(x=>`<div class="card flex-1 p-2"><div class="text-2xl font-bold">${x[1]}</div><div class="text-[10px] text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
+  let h=`<div class="flex gap-2 mb-4 text-center">${[['Carrinhos',n],['Ocupados',act.length],['Livres',Math.max(0,n-act.length-sb)],['Descarreg.',sb]].map(x=>`<div class="card flex-1 p-2"><div class="text-2xl font-bold">${x[1]}</div><div class="text-[10px] text-gray-500">${x[0].toUpperCase()}</div></div>`).join('')}</div><div class="font-semibold mb-2">Frota de Carrinhos <span class="text-xs font-normal text-gray-400">· R$ 1,50/min</span></div>`;
   if(!n)h+='<p class="text-gray-400 text-center mt-10">Nenhum carrinho cadastrado.</p>';
   return h+S.carts.slice().sort((a,b)=>rk(a)-rk(b)).map(c=>{
     const a=act.find(l=>l.carrinho==c.id);
-    if(!a&&c.status=='sem_bateria')return `<div onclick="recarregado('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-gray-400 bg-gray-100"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg" style="filter:grayscale(1);opacity:.7"><div class="flex-1"><b class="text-gray-600">${c.nome}</b><div class="text-xs text-gray-600">🔋 SEM BATERIA</div></div><span class="text-xs text-gray-400 text-right">toque se<br>recarregou</span></div>`;
-    if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 border-green-500"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE</div></div><div class="text-right"><span class="text-[11px] text-gray-400 block mb-1">toque p/ iniciar</span><button onclick="event.stopPropagation();semBat('${c.id}')" class="b bg-gray-100 text-gray-600 text-xs" style="padding:6px 8px">🔋 Sem bateria</button></div></div>`;
+    if(!a&&c.status=='sem_bateria')return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 border-l-4 border-gray-400 bg-gray-100"><div class="flex items-center gap-3"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg" style="filter:grayscale(1);opacity:.7"><div class="flex-1"><b class="text-gray-600">${c.nome}</b><div class="text-xs text-gray-600">🪫 DESCARREGADO</div></div></div>${bat(c)}</div>`;
+    if(!a)return `<div onclick="entry('${c.id}')" class="card p-3 mb-3 border-l-4 border-green-500"><div class="flex items-center gap-3"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1"><b>${c.nome}</b><div class="text-xs text-green-600">● LIVRE · 🔋 carregado</div></div><span class="text-xs text-gray-400">toque p/ iniciar</span></div>${bat(c)}</div>`;
     const p=a.status=='pausada',bn=inB(a);
-    return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':bn?'border-purple-400 bg-purple-100':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':bn?'text-purple-700':'text-red-600'}">● ${p?'PAUSADO':bn?'BÔNUS':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
+    return `<div data-card="${a.id}" onclick="panel('${a.id}')" class="card p-3 mb-3 flex items-center gap-3 border-l-4 ${p?'border-amber-400 bg-amber-50':bn?'border-purple-400 bg-purple-100':'border-red-500 bg-red-50'}"><img src="${c.foto}" class="w-20 h-16 object-contain rounded-lg"><div class="flex-1 min-w-0"><b>${c.nome}</b><div class="text-xs ${p?'text-amber-700':bn?'text-purple-700':'text-red-600'}">● ${p?'PAUSADO':bn?'BÔNUS':'OCUPADO'} · ${a.cliente||''}</div><div class="text-xs text-gray-500">${a.minutos} min · ${brl(a.valor)}</div><div>${payPill(a)}</div></div><div class="text-right"><div class="tm text-2xl font-bold" data-id="${a.id}"></div><div class="lb text-xs text-red-500" data-id="${a.id}"></div></div></div>`}).join('');
 }
 
-/* Bateria */
-async function semBat(id){if(!confirm('Marcar "'+cart(id).nome+'" como SEM BATERIA?'))return;try{await call('cartStatus',{id,status:'sem_bateria'});await load(true)}catch(e){alert('Erro: '+e)}}
-async function recarregado(id){if(!confirm('A bateria de "'+cart(id).nome+'" foi recarregada? Voltar para LIVRE?'))return;try{await call('cartStatus',{id,status:''});await load(true)}catch(e){alert('Erro: '+e)}}
+/* Bateria: Carregado / Descarregado */
+async function setBat(id,st){const c=S.carts.find(x=>x.id==id);if(!c||(c.status||'')==st)return;c.status=st;render();
+  try{await call('cartStatus',{id,status:st})}catch(e){alert('Erro: '+e);load(true)}}
 
 /* Modais */
 const M=h=>{document.querySelectorAll('.mdl').forEach(e=>e.remove());const d=document.createElement('div');d.className='mdl fixed inset-0 bg-black/60 flex items-center justify-center p-4 z-50';d.innerHTML=`<div class="bg-white w-full max-w-md rounded-3xl p-5 max-h-[92vh] overflow-y-auto">${h}</div>`;d.onclick=e=>e.target==d&&d.remove();document.body.appendChild(d);return d};
@@ -171,7 +173,7 @@ const payVals=(d,id)=>{const o={};['pix','dinheiro','debito','credito'].forEach(
 const payBind=(d,id,cb)=>['pix','dinheiro','debito','credito'].forEach(k=>d.querySelector(`#${id}-${k}`).oninput=()=>{const v=payVals(d,id);d.querySelector(`#${id}-t`).textContent=brl(pg(v));cb&&cb(v)});
 
 function entry(cid){
-  if(cart(cid).status=='sem_bateria')return recarregado(cid);
+  if(cart(cid).status=='sem_bateria')return alert('Este brinquedo está DESCARREGADO. Quando carregar, marque como 🔋 Carregado.');
   let pk=null,valor=0;
   const d=M(`<h2 class="text-2xl font-extrabold mb-1">Registrar Entrada</h2><div class="text-sm text-gray-500 mb-3">${cart(cid).nome}</div>
   <label class="text-sm text-gray-600">Celular (Opcional - Busca Cliente)</label><input id="e-cel" type="tel" inputmode="numeric" placeholder="(00) 00000-0000" class="in mb-1"><div id="e-fb" class="text-xs font-semibold mb-2 text-green-600"></div>
@@ -222,7 +224,7 @@ function swap(l){
   const busy=S.loc.filter(live).map(x=>String(x.carrinho)),free=S.carts.filter(c=>!busy.includes(String(c.id))&&c.status!='sem_bateria');
   const d=M(`<h2 class="text-xl font-bold mb-1">Trocar de brinquedo</h2><div class="text-sm text-gray-500 mb-3">${esc(l.cliente)} está em <b>${esc(cart(l.carrinho).nome)}</b>. O tempo continua de onde está.</div>
   ${free.length?free.map(c=>`<button type="button" data-c="${c.id}" class="sw card w-full p-2 mb-2 flex items-center gap-3 text-left border"><img src="${c.foto}" class="w-16 h-12 object-contain"><b class="flex-1">${esc(c.nome)}</b><span class="text-green-600 text-xs">● LIVRE</span></button>`).join(''):'<p class="text-center text-gray-400 my-4">Nenhum brinquedo livre no momento.</p>'}
-  <label class="flex items-start gap-2 text-sm mt-2"><input type="checkbox" id="sw-bat" class="mt-1"> <span>O brinquedo atual está sem bateria (marcar como 🔋 sem bateria)</span></label>
+  <label class="flex items-start gap-2 text-sm mt-2"><input type="checkbox" id="sw-bat" class="mt-1"> <span>O brinquedo atual descarregou (marcar como 🪫 Descarregado)</span></label>
   <button class="b w-full bg-gray-100 mt-4" id="sw-x">Voltar</button>`);
   d.querySelector('#sw-x').onclick=()=>panel(l.id);
   d.querySelectorAll('.sw').forEach(b=>b.onclick=async()=>{const c=cart(b.dataset.c);if(!confirm(`Trocar para "${c.nome}"? O tempo não muda.`))return;
